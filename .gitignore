@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env/
+
+# Git
+.git
+
+# Cloned Repo
+cloned_mcp_agents_hub/
+
+# VS Code
+.vscode/
