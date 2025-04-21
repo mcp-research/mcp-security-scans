@@ -1,14 +1,16 @@
 name: Process MCP Repositories
 
 on:
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+  workflow_dispatch:
     inputs:
       target_org:
         description: 'Target GitHub organization to fork into (optional)'
         required: false
         default: 'mcp-research' # Default from script
+
   schedule:
     - cron: '0 3 * * 1' # Run every Monday at 3 AM UTC
+
   push:
     paths:
       - src/**
@@ -17,10 +19,8 @@ on:
 jobs:
   process_repos:
     runs-on: ubuntu-latest
-    # Permissions might need adjustment based on GitHub App setup and required actions
     permissions:
-      contents: read # For checkout
-      # Add other permissions if the workflow needs to interact with secrets or the API directly
+      contents: read # For the checkout action
 
     steps:
       - name: Checkout code
@@ -38,8 +38,8 @@ jobs:
 
       - name: Run MCP Repo Processing Script
         env:
-          GH_APP_ID: ${{ secrets.GH_APP_ID }} # Store App ID as a repository/organization secret
-          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }} # Store Private Key as a repository/organization secret
+          GH_APP_ID: ${{ vars.GH_APP_ID }} 
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Use the input if manually triggered, otherwise the script uses its internal default
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
         run: |
@@ -48,6 +48,7 @@ jobs:
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
             TARGET_ORG_ARG="--target-org $TARGET_ORG_INPUT"
           fi
+
           echo "Running script with arguments: $TARGET_ORG_ARG"
           python src/process_mcp_repos.py $TARGET_ORG_ARG
 
