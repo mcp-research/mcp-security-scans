@@ -4,6 +4,7 @@ from git import Repo, GitCommandError
 from githubkit.exception import RequestError, RequestFailed, RequestTimeout
 from pathlib import Path
 from urllib.parse import urlparse
+from githubkit.versions.latest.models import FullRepository
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -158,4 +159,37 @@ def check_dependabot_config(gh: GitHub, owner: str, repo: str) -> bool:
     except Exception as e:
         logging.error(f"Unexpected error checking dependabot config for [{owner}/{repo}]: [{e}]")
         return False
+
+def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
+    """Lists all repositories for a given organization, handling pagination.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        org: The name of the GitHub organization.
+
+    Returns:
+        A list of FullRepository objects for the organization.
+
+    Raises:
+        RequestFailed: If the API call fails.
+        Exception: For other unexpected errors.
+    """
+    all_repos = []
+    logging.info(f"Fetching all existing repositories for organization [{org}]...")
+    try:
+        paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="all") # type='all' includes public, private, forks
+
+        # Iterate through the paginated results
+        for repo in paginated_repos:
+            all_repos.append(repo)
+
+        logging.info(f"Successfully fetched [{len(all_repos)}] repositories for organization [{org}].")
+        return all_repos
+
+    except RequestFailed as e:
+        handle_github_api_error(e, f"listing all repositories for org [{org}]")
+        raise # Re-raise the exception after logging
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while listing repositories for org [{org}]: [{e}]")
+        raise # Re-raise the exception
 
