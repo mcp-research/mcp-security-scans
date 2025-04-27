@@ -60,7 +60,6 @@ def get_installation_github_client(gh_app: GitHub, target_org: str) -> GitHub:
         logging.error(f"Failed to get installation client for [{target_org}]: [{e}]")
         raise
 
-
 def clone_or_update_repo(repo_url: str, local_path: Path):
     """Clones a repository if it doesn't exist locally, or pulls updates if it does."""
     if local_path.exists():
