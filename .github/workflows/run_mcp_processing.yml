@@ -7,6 +7,10 @@ on:
         description: 'Target GitHub organization to fork into (optional)'
         required: false
         default: 'mcp-research' # Default from script
+      num_repos:
+        description: 'Number of repositories to process (optional)'
+        required: false
+        default: '50' # Default for workflow runs
 
   schedule:
     - cron: '0 3 * * 1' # Run every Monday at 3 AM UTC
@@ -52,6 +56,7 @@ jobs:
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Use the input if manually triggered, otherwise the script uses its internal default
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
+          NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
         run: |
           TARGET_ORG_ARG=""
           # Only add the argument if the input is not empty and not the default (to let the script handle the default)
@@ -59,6 +64,9 @@ jobs:
             TARGET_ORG_ARG="--target-org $TARGET_ORG_INPUT"
           fi
 
-          echo "Running script with arguments: $TARGET_ORG_ARG"
-          python src/process_mcp_repos.py $TARGET_ORG_ARG
+          # Determine the number of repos argument or use the default
+          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-50}"
+
+          echo "Running script with arguments. Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG]"
+          python src/process_mcp_repos.py $TARGET_ORG_ARG $NUM_REPOS_ARG
 

@@ -1,4 +1,3 @@
-\
 import os
 import json
 import argparse
@@ -187,6 +186,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
     # Removed app-id and private-key-path arguments
     parser.add_argument("--target-org", default=TARGET_ORG, help=f"Target GitHub organization to fork into (default: {TARGET_ORG})")
+    parser.add_argument("--num-repos", type=int, default=3, help="Number of repositories to process (default: 3 for local runs)")
 
     args = parser.parse_args()
 
@@ -221,17 +221,24 @@ def main():
             logging.warning(f"No JSON files found in [{json_dir}]")
             return
 
-        # Limit to the first 3 files
-        json_files_to_process = all_json_files[:3]
-        logging.info(f"Found [{len(all_json_files)}] JSON files. Processing the first [{len(json_files_to_process)}].")
+        # Limit based on the --num-repos argument
+        num_to_process = args.num_repos
+        # Removed slicing: json_files_to_process = all_json_files[:num_to_process]
+        logging.info(f"Found [{len(all_json_files)}] JSON files. Will process up to [{num_to_process}] repositories based on --num-repos.")
 
         # --- Process Repos ---
-        total_repos = 0
+        unique_source_repos_attempted = 0
+        processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
         dependabot_enabled_count = 0
-        processed_repos = set() # Keep track of processed source repos to avoid duplicates if listed multiple times
+        processed_repos = set() # Keep track of processed source repos to avoid duplicates
 
-        # Iterate over the limited list
-        for json_file_path in json_files_to_process:
+        # Iterate over all JSON files until the desired number is processed
+        for json_file_path in all_json_files:
+            # Check if we have processed enough repos
+            if processed_repo_count >= num_to_process:
+                logging.info(f"Reached processing limit of [{num_to_process}] repositories.")
+                break
+
             try:
                 with open(json_file_path, 'r') as f:
                     data = json.load(f)
@@ -251,16 +258,13 @@ def main():
                     logging.info(f"Skipping duplicate source repository: [{source_repo_full_name}]")
                     continue
 
-                logging.info(f"Processing source repository: [{source_repo_full_name}]")
-                total_repos += 1
-                processed_repos.add(source_repo_full_name)
-
                 # Keep the same repo name in the target org, but prefix it with the original owner and a double underscore
                 target_repo_name = f"{source_owner}__{source_repo}"
                 target_owner = args.target_org
 
                 # Check if fork already exists in the target organization
                 fork_exists = False
+                fork_skipped = False # Flag to indicate if we skipped due to non-fork repo existing
                 try:
                     # log
                     logging.info(f"Checking if fork exists for [{target_repo_name}] in [{target_owner}]...")
@@ -270,10 +274,15 @@ def main():
                         logging.info(f"Fork [{target_owner}/{target_repo_name}] already exists.")
                         fork_exists = True
                     else:
-                         logging.warning(f"Repository [{target_owner}/{target_repo_name}] exists but is not a fork of [{source_repo_full_name}]. Skipping fork creation.")
-                         # Decide if you want to proceed with GHAS enablement anyway or skip
-                         # For now, let's skip GHAS enablement if it's not the correct fork.
+                         logging.warning(f"Repository [{target_owner}/{target_repo_name}] exists but is not a fork of [{source_repo_full_name}]. Skipping GHAS enablement.")
+                         # Skip GHAS enablement and don't count this towards the processed limit
+                         fork_skipped = True # Mark as skipped
                          continue # Skip to next JSON file
+                    
+                    # continue debugging why we still process the same 3 repos during debugging from here
+                    logging.info(f"Processing source repository: [{source_repo_full_name}]")
+                    unique_source_repos_attempted += 1
+                    processed_repos.add(source_repo_full_name)
 
                 except RequestFailed as e:
                     if e.response.status_code == 404:
@@ -302,11 +311,13 @@ def main():
                         handle_github_api_error(e, f"checking fork existence for [{target_owner}/{target_repo_name}]")
                         continue # Skip if we can't determine existence
 
-                # If fork exists (or was just created), enable GHAS and check Dependabot
-                if fork_exists:
+                # If fork exists (or was just created) and wasn't skipped, enable GHAS, check Dependabot, and count it.
+                if fork_exists and not fork_skipped:
                     enable_ghas_features(gh, target_owner, target_repo_name)
                     if check_dependabot_config(gh, target_owner, target_repo_name):
                         dependabot_enabled_count += 1
+                    processed_repo_count += 1 # Increment the counter for successfully processed repos
+                    # The check to break the loop is now at the beginning of the outer loop
 
             except json.JSONDecodeError:
                 logging.error(f"Skipping [{json_file_path.name}]: Invalid JSON.")
@@ -315,10 +326,14 @@ def main():
 
         # --- Reporting ---
         logging.info("--- Processing Complete ---")
-        # Reporting logic remains the same, but reflects the limited run
-        logging.info(f"Total unique source repositories processed (from the first [{len(json_files_to_process)}] JSON files): [{total_repos}]")
-        logging.info(f"Repositories with Dependabot config (.github/dependabot.yml): [{dependabot_enabled_count}]")
-        logging.info(f"Repositories without Dependabot config: [{total_repos - dependabot_enabled_count}]")
+        logging.info(f"Total unique source repositories attempted (from JSON files): [{unique_source_repos_attempted}]")
+        logging.info(f"Successfully processed repositories (fork found/created and GHAS attempted): [{processed_repo_count}] (Limit was [{num_to_process}])")
+        logging.info(f"Repositories among processed with Dependabot config (.github/dependabot.yml): [{dependabot_enabled_count}]")
+        if processed_repo_count > 0:
+             logging.info(f"Repositories among processed without Dependabot config: [{processed_repo_count - dependabot_enabled_count}]")
+        else:
+             logging.info("No repositories were successfully processed to check for Dependabot config.")
+
 
     except Exception as e:
         logging.error(f"Script failed with an error: [{e}]")
