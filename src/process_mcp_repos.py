@@ -177,7 +177,7 @@ def process_repository_from_json(
     gh: Any, # Replace Any with the actual type of the GitHub client
     target_org: str,
     processed_repos: set[str]
-) -> tuple[int, int]:
+) -> tuple[int, int, bool, bool]: # Added bool returns for skipped_non_fork and failed_fork
     """
     Processes a single repository based on data from a JSON file.
 
@@ -193,12 +193,16 @@ def process_repository_from_json(
                          This set will be modified by this function.
 
     Returns:
-        A tuple (processed_increment, dependabot_increment):
+        A tuple (processed_increment, dependabot_increment, skipped_non_fork, failed_fork):
         - processed_increment: 1 if the repository was successfully processed (forked/found + GHAS attempted), 0 otherwise.
-        - dependabot_increment: 1 if Dependabot config was found, 0 otherwise.
+        - dependabot_increment: 1 if Dependabot config was found among processed, 0 otherwise.
+        - skipped_non_fork: True if skipped because repo exists but isn't correct fork, False otherwise.
+        - failed_fork: True if fork creation/check failed, False otherwise.
     """
     processed_increment = 0
     dependabot_increment = 0
+    skipped_non_fork = False
+    failed_fork = False
     source_repo_full_name = None # Keep track of the source repo name for adding to the set
 
     try:
@@ -208,75 +212,93 @@ def process_repository_from_json(
         github_url = data.get("githubUrl")
         if not github_url:
             logging.warning(f"Skipping [{json_file_path.name}]: 'githubUrl' not found.")
-            return 0, 0
+            return 0, 0, False, False # No processing, not skipped/failed in the specific ways tracked
 
         source_owner, source_repo = extract_repo_owner_name(github_url)
         if not source_owner or not source_repo:
             logging.warning(f"Skipping [{json_file_path.name}]: Could not parse owner/repo from URL '[{github_url}]'.")
-            return 0, 0
+            return 0, 0, False, False # No processing
 
         source_repo_full_name = f"{source_owner}/{source_repo}"
         if source_repo_full_name in processed_repos:
             logging.info(f"Skipping duplicate source repository: [{source_repo_full_name}]")
-            return 0, 0
+            # Return 0,0 but indicate it was processed previously (not skipped/failed *this time*)
+            return 0, 0, False, False
 
         # Keep the same repo name in the target org, but prefix it with the original owner and a double underscore
         target_repo_name = get_target_repo_name(source_owner, source_repo)
 
         # Check if fork exists or create it
-        fork_exists, fork_skipped = ensure_repository_fork(
+        fork_exists, fork_skipped_flag = ensure_repository_fork(
             existing_repos, gh, source_owner, source_repo, target_org, target_repo_name, source_repo_full_name
         )
 
         # If fork creation failed or check failed, ensure_repository_fork returns fork_exists=False
         if not fork_exists:
-            if not fork_skipped:
-                logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
-                return 0, 0 # Don't add to processed_repos
-
-        # If the repo was skipped because it exists but isn't the correct fork, return early.
-        if not fork_skipped:
-            # load the repository properties to check if we need to do something
-            properties = get_repository_properties(gh, target_org, target_repo_name)
-            if properties:
-                # check if we still need to proces this repository or not
-                if not reprocess_repository(properties):
-                    return 0, 0
+            if fork_skipped_flag:
+                # Repo exists but isn't the correct fork. Mark as skipped.
+                skipped_non_fork = True
+                logging.warning(f"Skipping GHAS enablement for [{target_org}/{target_repo_name}] as it's not the correct fork.")
+                # Add to processed_repos so we don't try again with this source
+                processed_repos.add(source_repo_full_name)
+                return 0, 0, skipped_non_fork, False # Return skipped status
             else:
-                # properties not found, so have not been set yet
-                logging.info(f"No properties found for [{target_org}/{target_repo_name}]. Processing")
+                # Fork creation/check genuinely failed.
+                failed_fork = True
+                logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
+                # Don't add to processed_repos because we might want to retry later
+                return 0, 0, False, failed_fork # Return failed status
 
-        # If fork exists (or was just created), add to processed set and proceed.
-        # The check for fork_exists is implicitly handled by the previous checks
-        # Add the *source* repo name to the set to track processed sources
+        # --- If we reach here, fork_exists is True ---
+
+        # Add the *source* repo name to the set to track processed sources *before* checking properties/reprocessing
+        # This ensures even if we skip due to recent update/GHAS already enabled, we count it as "encountered"
         processed_repos.add(source_repo_full_name)
+
+        # load the repository properties to check if we need to do something
+        properties = get_repository_properties(gh, target_org, target_repo_name)
+        if properties:
+            # check if we still need to process this repository or not
+            if not reprocess_repository(properties):
+                 logging.info(f"Skipping reprocessing for [{target_org}/{target_repo_name}] based on properties.")
+                 # It was processed successfully before, return 0 for *new* processing this run
+                 # Return False for skipped/failed as it was handled correctly
+                 return 0, 0, False, False
+        else:
+            # properties not found, so have not been set yet
+            logging.info(f"No properties found for [{target_org}/{target_repo_name}]. Processing...")
+
+        # If fork exists and needs processing (or properties check passed)
         logging.info(f"Processing source repository: [{source_repo_full_name}] (Target: [{target_org}/{target_repo_name}])")
 
         enable_ghas_features(gh, target_org, target_repo_name)
         dependabot_configured = check_dependabot_config(gh, target_org, target_repo_name)
         if dependabot_configured:
             dependabot_increment = 1
-        
+
         properties_to_update = {
             "GHAS_Enabled": True,
             "LastUpdated": datetime.datetime.now().isoformat(),
             "HasDependabotConfig": dependabot_configured
         }
         update_repository_properties(gh, target_org, target_repo_name, properties_to_update)
-        processed_increment = 1 # Mark as successfully processed
+        processed_increment = 1 # Mark as successfully processed *this run*
 
     except json.JSONDecodeError:
         logging.error(f"Skipping [{json_file_path.name}]: Invalid JSON.")
+        # Mark as failed for reporting purposes, although it's a data issue
+        failed_fork = True # Use failed_fork flag to indicate *some* failure occurred for this item
     except Exception as e:
         logging.error(f"An unexpected error occurred processing [{json_file_path.name}]: [{e}]")
         # Ensure we don't count this as processed if an error occurred mid-way
         processed_increment = 0
         dependabot_increment = 0
+        failed_fork = True # Mark as failed
         # We might have added to processed_repos before the error,
         # but the logic prevents reprocessing anyway.
 
-    return processed_increment, dependabot_increment
-
+    # Return all counts and flags
+    return processed_increment, dependabot_increment, skipped_non_fork, failed_fork
 
 # --- Main Logic ---
 
@@ -307,6 +329,7 @@ def main():
 
         # Load all existing repos from the target org
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
+        initial_repo_count = len(existing_repos) # Store initial count
 
         # Clone or Update MCP Agents Hub repo
         clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
@@ -331,6 +354,8 @@ def main():
         processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
         dependabot_enabled_count = 0
         processed_repos = set() # Keep track of processed source repos to avoid duplicates
+        skipped_non_fork_count = 0 # Track repos skipped because they exist but aren't the correct fork
+        failed_fork_count = 0 # Track repos where fork creation/check failed
 
         # Iterate over all JSON files until the desired number is processed
         for json_file_path in all_json_files:
@@ -340,7 +365,7 @@ def main():
                 break
 
             # Call the helper function to process this specific repo
-            processed_inc, dependabot_inc = process_repository_from_json(
+            processed_inc, dependabot_inc, skipped_non_fork, failed_fork = process_repository_from_json(
                 existing_repos,
                 json_file_path,
                 gh,
@@ -351,20 +376,52 @@ def main():
             # Update counters based on the result from the helper function
             processed_repo_count += processed_inc
             dependabot_enabled_count += dependabot_inc
-            logging.info("")    
+            skipped_non_fork_count += 1 if skipped_non_fork else 0
+            failed_fork_count += 1 if failed_fork else 0
+            if processed_inc or skipped_non_fork or failed_fork: # Log separator only if something happened
+                 logging.info("")  
 
         # Reporting
         logging.info("")
-        # unique_source_repos_attempted is implicitly len(processed_repos) now + any skipped non-forks (which isn't tracked explicitly anymore, but wasn't the primary metric)
-        logging.info(f"New repositories successfully processed: [{processed_repo_count}] (Limit was [{num_to_process}])")
-        logging.info(f"Total repositories in target organization [{args.target_org}]: [{len(existing_repos) + processed_repo_count}]")
-        logging.info(f"Unique repositories encountered: [{len(processed_repos)}]") # This reflects unique sources added to the set
-        logging.info(f"Repositories among processed with Dependabot config: [{dependabot_enabled_count}]")
-        show_rate_limit(gh)
-        
         end_time = datetime.datetime.now() # Record end time
         duration = end_time - start_time
-        logging.info(f"Total execution time: [{duration}]")
+        final_repo_count = len(list_all_repositories_for_org(gh, args.target_org)) # Get updated count
+
+        # Prepare summary messages
+        summary_lines = [
+            f"**MCP Repository Processing Summary**",
+            f"-----------------------------------",
+            f"- Processing Limit (--num-repos): `{num_to_process}`",
+            f"- Total JSON files found: `{len(all_json_files)}`",
+            f"- Unique source repositories encountered: `{len(processed_repos)}`",
+            f"- New repositories successfully processed (forked/found & GHAS enabled): `{processed_repo_count}`",
+            f"- Repositories skipped (exist but not correct fork): `{skipped_non_fork_count}`",
+            f"- Repositories failed (fork creation/check error): `{failed_fork_count}`",
+            f"- Repositories among processed with Dependabot config: `{dependabot_enabled_count}`",
+            f"- Initial repositories in target org `{args.target_org}`: `{initial_repo_count}`",
+            f"- Final repositories in target org `{args.target_org}`: `{final_repo_count}`",
+            f"- Total execution time: `{duration}`"
+        ]
+
+        # Log summary to console
+        logging.info("Processing Summary")
+        for line in summary_lines[1:]: # Skip the markdown title for console
+            logging.info(line.replace('`', '').replace('*', '')) # Clean markdown for console
+        show_rate_limit(gh)
+        logging.info(f"Total execution time: [{duration}]") # Repeat duration for clarity
+
+        # Write summary to GITHUB_STEP_SUMMARY if available
+        summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
+        if summary_file_path:
+            try:
+                with open(summary_file_path, "a") as summary_file: # Append mode
+                    summary_file.write("\n".join(summary_lines) + "\n\n")
+                logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file: [{summary_file_path}]")
+            except Exception as e:
+                logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file [{summary_file_path}]: [{e}]")
+        else:
+            logging.info("GITHUB_STEP_SUMMARY environment variable not set. Skipping summary file output.")
+
 
     except Exception as e:
         logging.error(f"Script failed with an error: [{e}]")
