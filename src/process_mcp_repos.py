@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 import argparse
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
 
 # Import the local functions
-from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, handle_github_api_error, list_all_repositories_for_org 
+from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, handle_github_api_error, list_all_repositories_for_org, update_repository_properties 
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -174,8 +175,16 @@ def process_repository_from_json(
         logging.info(f"Processing source repository: [{source_repo_full_name}] (Target: [{target_org}/{target_repo_name}])")
 
         enable_ghas_features(gh, target_org, target_repo_name)
-        if check_dependabot_config(gh, target_org, target_repo_name):
+        dependabot_configured = check_dependabot_config(gh, target_org, target_repo_name)
+        if dependabot_configured:
             dependabot_increment = 1
+        
+        properties_to_update = {
+            "GHAS_Enabled": True,
+            "LastUpdated": datetime.datetime.now().isoformat(),
+            "HasDependabotConfig": dependabot_configured
+        }
+        update_repository_properties(gh, target_org, target_repo_name, properties_to_update)
         processed_increment = 1 # Mark as successfully processed
 
     except json.JSONDecodeError:

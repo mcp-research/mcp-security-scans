@@ -5,6 +5,7 @@ from githubkit.exception import RequestError, RequestFailed, RequestTimeout
 from pathlib import Path
 from urllib.parse import urlparse
 from githubkit.versions.latest.models import FullRepository
+from typing import Any # Add Any for type hinting
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -179,7 +180,7 @@ def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
     try:
         paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="all") # type='all' includes public, private, forks
 
-        # Iterate through the paginated results
+        # iterate through the paginated results
         for repo in paginated_repos:
             all_repos.append(repo)
 
@@ -188,8 +189,58 @@ def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
 
     except RequestFailed as e:
         handle_github_api_error(e, f"listing all repositories for org [{org}]")
-        raise # Re-raise the exception after logging
+        raise # re-raise the exception after logging
     except Exception as e:
         logging.error(f"An unexpected error occurred while listing repositories for org [{org}]: [{e}]")
-        raise # Re-raise the exception
+        raise # re-raise the exception
 
+def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, properties: dict[str, Any]):
+    """Updates *custom* repository properties using the GitHub REST API.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        target_org: The name of the organization owning the repository.
+        target_repo_name: The name of the repository to update.
+        properties: A dictionary where keys are the names of the *custom* properties
+                    to update and values are the new values to set.
+                    Properties must already exist for the organization or repository.
+
+    Raises:
+        RequestFailed: If the API call fails (e.g., property doesn't exist, invalid value, permissions).
+        Exception: For other unexpected errors.
+    """
+    custom_properties_list = []
+    property_names = list(properties.keys()) # For logging
+
+    try:
+        for property_name, value in properties.items():
+            # Convert boolean to lowercase string to prevent API errors, stringify others
+            if isinstance(value, bool):
+                property_value = str(value).lower()
+            else:
+                property_value = str(value)
+
+            custom_properties_list.append(
+                {"property_name": property_name, "value": property_value}
+            )
+
+        logging.info(f"Attempting to update custom properties {property_names} for [{target_org}/{target_repo_name}]...")
+
+        gh.rest.repos.create_or_update_custom_properties_values(
+            owner=target_org,
+            repo=target_repo_name,
+            properties=custom_properties_list
+        )
+        logging.info(f"Successfully updated custom properties {property_names} for [{target_org}/{target_repo_name}].")
+
+    except RequestFailed as e:
+        # Enhanced logging for 422 errors
+        if e.response.status_code == 422:
+             logging.error(f"Failed to update custom properties {property_names} for [{target_org}/{target_repo_name}] with 422 Unprocessable Entity.")
+             logging.error("This often means one or more custom property names do not exist for the organization/repo or a value is invalid for its property type.")
+             logging.error(f"Error details: {e.response.json()}") # Log the response body if available
+        handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
+        raise
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
+        raise
