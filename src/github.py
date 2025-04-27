@@ -244,3 +244,42 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
     except Exception as e:
         logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
         raise
+
+def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str) -> dict[str, Any]:
+    """Retrieves *custom* repository properties using the GitHub REST API.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        target_org: The name of the organization owning the repository.
+        target_repo_name: The name of the repository to retrieve properties for.
+
+    Returns:
+        A dictionary where keys are the names of the *custom* properties
+        and values are the current values set for the repository.
+        An empty dictionary is returned if no properties are set.
+
+    Raises:
+        RequestFailed: If the API call fails (e.g., property doesn't exist, permissions).
+        Exception: For other unexpected errors.
+    """
+    try:
+        logging.info(f"Fetching custom properties for [{target_org}/{target_repo_name}]...")
+
+        properties = gh.rest.repos.get_custom_properties_values(
+            owner=target_org,
+            repo=target_repo_name
+        ).json()
+
+        if properties:
+            logging.info(f"Successfully fetched custom properties for [{target_org}/{target_repo_name}].")
+            return {prop["property_name"]: prop["value"] for prop in properties}
+        else:
+            logging.info(f"No custom properties found for [{target_org}/{target_repo_name}].")
+            return {}
+
+    except RequestFailed as e:
+        handle_github_api_error(e, f"fetching custom repository properties for [{target_org}/{target_repo_name}]")
+        raise
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while fetching custom repository properties for [{target_org}/{target_repo_name}]: [{e}]")
+        raise

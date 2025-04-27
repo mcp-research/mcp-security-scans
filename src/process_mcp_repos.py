@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
 
 # Import the local functions
-from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, handle_github_api_error, list_all_repositories_for_org, update_repository_properties 
+from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, update_repository_properties 
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,12 +53,12 @@ def ensure_repository_fork(
     try:
         logging.info(f"Checking if fork exists for [{target_repo_name}] in [{target_org}]...")
         # check if the fork already exists in the exising_repos list
-        target_repo_info = next((r for r in existing_repos if r.full_name.lower() == f"{target_org}/{target_repo_name}".lower()), None)
-        # if not target_repo_info:
-        #     target_repo_info : FullRepository = gh.rest.repos.get(owner=target_org, repo=target_repo_name).parsed_data
+        search_name = f"{target_org}/{target_repo_name}".lower()
+        target_repo_info = next((r for r in existing_repos if r.full_name.lower() == search_name), None)
+        parent_full_name = get_parent_full_name(target_repo_info)
 
         # check if it's actually a fork of the correct source
-        if target_repo_info and target_repo_info.fork and target_repo_info.parent and target_repo_info.parent.full_name.lower() == source_repo_full_name.lower():
+        if target_repo_info and target_repo_info.fork and parent_full_name == source_repo_full_name.lower():
             logging.info(f"Fork [{target_org}/{target_repo_name}] already exists.")
             fork_exists = True
         elif target_repo_info: # repository exists but is not the correct fork
@@ -100,6 +100,75 @@ def ensure_repository_fork(
 
     return fork_exists, fork_skipped
 
+def get_target_repo_name(source_owner: str, source_repo: str) -> str:
+    """
+    Generates the target repository name in the target organization.
+
+    The target repository name is the same as the source repository name,
+    but prefixed with the original owner and a double underscore.
+
+    Args:
+        source_owner: Owner of the source repository.
+        source_repo: Name of the source repository.
+
+    Returns:
+        The target repository name in the target organization.
+    """
+    return f"{source_owner}__{source_repo}"
+
+def get_parent_full_name(repo_info: FullRepository) -> str:
+    """
+    Extracts the full name of the parent repository from a fork.
+
+    Args:
+        repo_info: FullRepository object representing the fork.
+
+    Returns:
+        The full name of the parent repository if available in owner/repo setup, an empty string otherwise.
+    """
+    # split name on double underscore to get the original owner and repo
+    if repo_info and repo_info.name:
+        parts = repo_info.name.split("__")
+        if len(parts) == 2:
+            return f"{parts[0]}/{parts[1]}"
+        
+    return ""
+
+def reprocess_repository(properties: dict) -> bool:
+    """
+    Checks if a repository should be reprocessed based on its properties.
+
+    Args:
+        properties: Dictionary of repository properties.
+
+    Returns:
+        True if the repository should be reprocessed, False otherwise.
+    """
+    # Check if the repository has been updated in the last 24 hours
+    last_updated = properties.get("LastUpdated")
+    if last_updated:
+        if last_updated == "Testing":
+            return True
+        
+        last_updated_time = datetime.datetime.fromisoformat(last_updated)
+        if datetime.datetime.now() - last_updated_time < datetime.timedelta(days=7):
+            logging.info("Repository was last updated within the last 7 days. Skipping reprocessing.")
+            return False
+
+    # Check if GHAS is already enabled
+    ghas_enabled = properties.get("GHAS_Enabled")
+    if ghas_enabled:
+        logging.info("GHAS features are already enabled. Skipping reprocessing.")
+        return False
+
+    # Check if Dependabot config is already present
+    dependabot_configured = properties.get("HasDependabotConfig")
+    if dependabot_configured:
+        logging.info("Dependabot configuration is already present. Skipping reprocessing.")
+        return False
+
+    # Reprocess if none of the above conditions are met
+    return True	
 
 def process_repository_from_json(
     existing_repos: list[FullRepository],
@@ -151,7 +220,7 @@ def process_repository_from_json(
             return 0, 0
 
         # Keep the same repo name in the target org, but prefix it with the original owner and a double underscore
-        target_repo_name = f"{source_owner}__{source_repo}"
+        target_repo_name = get_target_repo_name(source_owner, source_repo)
 
         # Check if fork exists or create it
         fork_exists, fork_skipped = ensure_repository_fork(
@@ -159,15 +228,23 @@ def process_repository_from_json(
         )
 
         # If fork creation failed or check failed, ensure_repository_fork returns fork_exists=False
-        if not fork_exists and not fork_skipped:
-            logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
-            return 0, 0 # Don't add to processed_repos
+        if not fork_exists:
+            if not fork_skipped:
+                logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
+                return 0, 0 # Don't add to processed_repos
 
         # If the repo was skipped because it exists but isn't the correct fork, return early.
         if fork_skipped:
-            # Don't add to processed_repos as we didn't process it
-            return 0, 0
-
+            # load the repository properties to check if we need to do something
+            properties = get_repository_properties(gh, target_org, target_repo_name)
+            if properties:
+                # check if we still need to proces this repository or not
+                if not reprocess_repository(properties):
+                    return 0, 0
+            else:
+                # properties not found, so have not been set yet
+                logging.info(f"No properties found for [{target_org}/{target_repo_name}]. Processing")
+                
         # If fork exists (or was just created), add to processed set and proceed.
         # The check for fork_exists is implicitly handled by the previous checks
         # Add the *source* repo name to the set to track processed sources
