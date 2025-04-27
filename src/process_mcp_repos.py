@@ -10,10 +10,11 @@ from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
 
 # Import the local functions
-from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, update_repository_properties 
+from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, show_rate_limit, update_repository_properties 
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("githubkit").setLevel(logging.WARNING) # Reduce verbosity from githubkit
 load_dotenv() # Load environment variables from .env file
 
 # --- Constants ---
@@ -58,7 +59,7 @@ def ensure_repository_fork(
         parent_full_name = get_parent_full_name(target_repo_info)
 
         # check if it's actually a fork of the correct source
-        if target_repo_info and target_repo_info.fork and parent_full_name == source_repo_full_name.lower():
+        if target_repo_info and target_repo_info.fork and parent_full_name.lower() == source_repo_full_name.lower():
             logging.info(f"Fork [{target_org}/{target_repo_name}] already exists.")
             fork_exists = True
         elif target_repo_info: # repository exists but is not the correct fork
@@ -234,7 +235,7 @@ def process_repository_from_json(
                 return 0, 0 # Don't add to processed_repos
 
         # If the repo was skipped because it exists but isn't the correct fork, return early.
-        if fork_skipped:
+        if not fork_skipped:
             # load the repository properties to check if we need to do something
             properties = get_repository_properties(gh, target_org, target_repo_name)
             if properties:
@@ -244,7 +245,7 @@ def process_repository_from_json(
             else:
                 # properties not found, so have not been set yet
                 logging.info(f"No properties found for [{target_org}/{target_repo_name}]. Processing")
-                
+
         # If fork exists (or was just created), add to processed set and proceed.
         # The check for fork_exists is implicitly handled by the previous checks
         # Add the *source* repo name to the set to track processed sources
@@ -280,6 +281,7 @@ def process_repository_from_json(
 # --- Main Logic ---
 
 def main():
+    start_time = datetime.datetime.now() # Record start time
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
     # Removed app-id and private-key-path arguments
     parser.add_argument("--target-org", default=TARGET_ORG, help=f"Target GitHub organization to fork into (default: {TARGET_ORG})")
@@ -349,20 +351,20 @@ def main():
             # Update counters based on the result from the helper function
             processed_repo_count += processed_inc
             dependabot_enabled_count += dependabot_inc
+            logging.info("")    
 
         # Reporting
         logging.info("")
-        logging.info("Processing Complete")
         # unique_source_repos_attempted is implicitly len(processed_repos) now + any skipped non-forks (which isn't tracked explicitly anymore, but wasn't the primary metric)
         logging.info(f"New repositories successfully processed: [{processed_repo_count}] (Limit was [{num_to_process}])")
         logging.info(f"Total repositories in target organization [{args.target_org}]: [{len(existing_repos) + processed_repo_count}]")
-        logging.info(f"Unique repositories encountered (including duplicates and skips): [{len(processed_repos)}]") # This reflects unique sources added to the set
-        logging.info(f"Repositories among processed with Dependabot config (.github/dependabot.yml): [{dependabot_enabled_count}]")
-        if processed_repo_count > 0:
-             logging.info(f"Repositories among processed without Dependabot config: [{processed_repo_count - dependabot_enabled_count}]")
-        else:
-             logging.info("No repositories were successfully processed to check for Dependabot config.")
-
+        logging.info(f"Unique repositories encountered: [{len(processed_repos)}]") # This reflects unique sources added to the set
+        logging.info(f"Repositories among processed with Dependabot config: [{dependabot_enabled_count}]")
+        show_rate_limit(gh)
+        
+        end_time = datetime.datetime.now() # Record end time
+        duration = end_time - start_time
+        logging.info(f"Total execution time: [{duration}]")
 
     except Exception as e:
         logging.error(f"Script failed with an error: [{e}]")

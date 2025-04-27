@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime # Add datetime import
 from githubkit import GitHub, AppInstallationAuthStrategy
 from git import Repo, GitCommandError
 from githubkit.exception import RequestError, RequestFailed, RequestTimeout
@@ -283,3 +284,19 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
     except Exception as e:
         logging.error(f"An unexpected error occurred while fetching custom repository properties for [{target_org}/{target_repo_name}]: [{e}]")
         raise
+
+
+def show_rate_limit(gh: GitHub):
+    """Displays the current rate limit status for the authenticated GitHub client."""
+    try:
+        rate_limit = gh.rest.rate_limit.get().json()
+        core_limit = rate_limit["resources"]["core"]
+        reset_timestamp = core_limit["reset"]
+        # Convert Unix timestamp to readable datetime
+        reset_datetime = datetime.fromtimestamp(reset_timestamp)
+        reset_str = reset_datetime.strftime("%Y-%m-%d %H:%M:%S %Z") # Format the datetime
+        logging.info(f"Rate Limit Info: Core - Limit: {core_limit['limit']}, Remaining: {core_limit['remaining']}, Reset: {reset_str}")
+    except RequestFailed as e:
+        handle_github_api_error(e, "fetching rate limit status")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while fetching rate limit status: [{e}]")
