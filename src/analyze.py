@@ -45,7 +45,7 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
     """
     try:
         # Get code scanning alerts with state=open
-        alerts = gh.paginate(
+        alerts = gh.rest.paginate(
             gh.rest.code_scanning.list_alerts_for_repo,
             owner=owner,
             repo=repo,
@@ -82,7 +82,7 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
     """
     try:
         # Get secret scanning alerts with state=open
-        alerts = gh.paginate(
+        alerts = gh.rest.paginate(
             gh.rest.secret_scanning.list_alerts_for_repo,
             owner=owner,
             repo=repo,
@@ -119,7 +119,7 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> int:
     """
     try:
         # Get dependency vulnerability alerts
-        alerts = gh.paginate(
+        alerts = gh.rest.paginate(
             gh.rest.dependabot.list_alerts_for_repo,
             owner=owner,
             repo=repo,
@@ -283,7 +283,7 @@ def main():
                 logging.info(f"Reached scan limit of [{args.num_repos}] repositories.")
                 break
                 
-            logging.info(f"Processing repository {idx+1}/{min(total_repos, args.num_repos)}: {repo.name}")
+            logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dep_alerts = scan_repository(gh, repo, existing_repos_properties)

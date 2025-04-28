@@ -302,12 +302,12 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
 
         # first search in the existing properties list
         for repo_properties in existing_repos_properties:
-            if repo_properties["repository"]["name"] == target_repo_name:
+            if repo_properties.repository_name == target_repo_name:
                 # use the existing properties if found
-                properties = repo_properties["properties"]
+                properties = repo_properties.properties
                 logging.info(f"Found existing custom properties for [{target_org}/{target_repo_name}].")
-                return {prop["property_name"]: prop["value"] for prop in properties}
-            #todo: test this new code
+                # Fix: Access attributes properly for CustomPropertyValue objects
+                return {prop.property_name: prop.value for prop in properties}
 
         properties = gh.rest.repos.get_custom_properties_values(
             owner=target_org,
@@ -316,6 +316,7 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
 
         if properties:
             logging.info(f"Successfully fetched custom properties for [{target_org}/{target_repo_name}].")
+            # Keep dictionary syntax here since this comes from json()
             return {prop["property_name"]: prop["value"] for prop in properties}
         else:
             logging.info(f"No custom properties found for [{target_org}/{target_repo_name}].")
