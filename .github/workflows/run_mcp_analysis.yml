@@ -1,27 +1,32 @@
-name: Process MCP Repositories
+name: Analyze MCP Repositories
 
 on:
   workflow_dispatch:
     inputs:
       target_org:
-        description: 'Target GitHub organization to fork into (optional)'
+        description: 'Target GitHub organization to analyze (optional)'
         required: false
         default: 'mcp-research' # Default from script
       num_repos:
-        description: 'Number of repositories to process (optional)'
+        description: 'Number of repositories to analyze (optional)'
         required: false
-        default: '50' # Default for workflow runs
+        default: '10' # Default for workflow runs
+      verbose:
+        description: 'Enable verbose logging'
+        required: false
+        type: boolean
+        default: false
 
   schedule:
-    - cron: '0 3 * * *' # Run every day at 3 AM UTC
+    - cron: '0 5 * * *' # Run every day at 5 AM UTC
 
   push:
     paths:
-      - src/*
-      - .github/workflows/run_mcp_processing.yml
+      - src/analyze.py
+      - .github/workflows/run_mcp_analysis.yml
 
 jobs:
-  process_repos:
+  analyze_repos:
     runs-on: ubuntu-latest
     permissions:
       contents: read # For the checkout action
@@ -50,7 +55,7 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "requirements.txt not found"; exit 1; fi
 
-      - name: Run MCP Repo Processing Script
+      - name: Run MCP Repository Analysis Script
         env:
           GH_APP_ID: ${{ vars.GH_APP_ID }} 
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
@@ -64,9 +69,14 @@ jobs:
             TARGET_ORG_ARG="--target-org $TARGET_ORG_INPUT"
           fi
 
-          # Determine the number of repos argument or use the default
-          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-50}"
+          # Determine the number of repos argument
+          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-10}"
+          
+          # Add verbose flag if selected
+          VERBOSE_ARG=""
+          if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
+            VERBOSE_ARG="--verbose"
+          fi
 
-          echo "Running script with arguments. Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG]"
-          python src/process_mcp_repos.py $TARGET_ORG_ARG $NUM_REPOS_ARG
-
+          echo "Running analysis script with arguments: Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG], Verbose: [$VERBOSE_ARG]"
+          python src/analyze.py $TARGET_ORG_ARG $NUM_REPOS_ARG $VERBOSE_ARG
