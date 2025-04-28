@@ -72,7 +72,7 @@ jobs:
           fi
 
           # Determine the number of repos argument
-          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-DEFAULT_NUMBER_OF_REPOS}"
+          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-$DEFAULT_NUMBER_OF_REPOS}"
           
           # Add verbose flag if selected
           VERBOSE_ARG=""
