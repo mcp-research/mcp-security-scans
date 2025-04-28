@@ -45,6 +45,40 @@ def get_installation_github_client(gh_app: GitHub, target_org: str) -> GitHub:
         logging.error(f"Failed to get installation client for [{target_org}]: [{e}]")
         raise
 
+def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[str, Any]]:
+    """Lists all custom repository properties for a given organization.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        org: The name of the GitHub organization.
+
+    Returns:
+        A list of dictionaries where keys are the names of the *custom* properties
+        and values are the current values set for the organization's repositories.
+
+    Raises:
+        RequestFailed: If the API call fails.
+        Exception: For other unexpected errors.
+    """
+    all_properties = []
+    logging.info(f"Fetching all custom repository properties for organization [{org}]...")
+    try:
+        test = gh.rest.orgs.list_custom_properties_values_for_repos(org=org)
+        paginated_properties = gh.paginate(gh.rest.orgs.list_custom_properties_values_for_repos, org=org)
+
+        # iterate through the paginated results
+        for prop in paginated_properties:
+            all_properties.append(prop)
+
+        logging.info(f"Successfully fetched [{len(all_properties)}] custom repository properties for organization [{org}].")
+        return all_properties
+
+    except RequestFailed as e:
+        handle_github_api_error(e, f"listing all custom repository properties for org [{org}]")
+        raise # re-raise the exception after logging
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while listing custom repository properties for org [{org}]: [{e}]")
+        raise # re-raise the exception
 
 def enable_ghas_features(gh: GitHub, owner: str, repo: str):
     """Enables GHAS features (vuln alerts, code scanning default setup, secret scanning) for a repo."""
@@ -179,7 +213,7 @@ def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
     all_repos = []
     logging.info(f"Fetching all existing repositories for organization [{org}]...")
     try:
-        paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="all") # type='all' includes public, private, forks
+        paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="forks") # type='all' includes public, private, forks
 
         # iterate through the paginated results
         for repo in paginated_repos:
@@ -246,7 +280,7 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
         raise
 
-def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str) -> dict[str, Any]:
+def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, existing_repos_properties: list[dict]) -> dict[str, Any]:
     """Retrieves *custom* repository properties using the GitHub REST API.
 
     Args:
@@ -265,6 +299,15 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
     """
     try:
         logging.info(f"Fetching custom properties for [{target_org}/{target_repo_name}]...")
+
+        # first search in the existing properties list
+        for repo_properties in existing_repos_properties:
+            if repo_properties["repository"]["name"] == target_repo_name:
+                # use the existing properties if found
+                properties = repo_properties["properties"]
+                logging.info(f"Found existing custom properties for [{target_org}/{target_repo_name}].")
+                return {prop["property_name"]: prop["value"] for prop in properties}
+            #todo: test this new code
 
         properties = gh.rest.repos.get_custom_properties_values(
             owner=target_org,

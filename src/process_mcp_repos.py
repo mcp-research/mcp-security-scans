@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
 
 # Import the local functions
-from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, show_rate_limit, update_repository_properties 
+from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
+from functions import should_scan_repository
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -176,6 +177,7 @@ def process_repository_from_json(
     json_file_path: Path,
     gh: Any, # Replace Any with the actual type of the GitHub client
     target_org: str,
+    existing_repos_properties: list[dict],
     processed_repos: set[str]
 ) -> tuple[int, int, bool, bool]: # Added bool returns for skipped_non_fork and failed_fork
     """
@@ -256,7 +258,7 @@ def process_repository_from_json(
         processed_repos.add(source_repo_full_name)
 
         # load the repository properties to check if we need to do something
-        properties = get_repository_properties(gh, target_org, target_repo_name)
+        properties = get_repository_properties(gh, target_org, target_repo_name, existing_repos_properties)
         if properties:
             # check if we still need to process this repository or not
             if not reprocess_repository(properties):
@@ -329,6 +331,7 @@ def main():
 
         # Load all existing repos from the target org
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
+        existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         initial_repo_count = len(existing_repos) # Store initial count
 
         # Clone or Update MCP Agents Hub repo
@@ -370,6 +373,7 @@ def main():
                 json_file_path,
                 gh,
                 args.target_org,
+                existing_repos_properties,
                 processed_repos # Pass the set (it will be modified in place)
             )
 
