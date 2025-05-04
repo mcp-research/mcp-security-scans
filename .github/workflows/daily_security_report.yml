@@ -1,6 +1,12 @@
 name: Daily Security Report
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   schedule:
     # Runs at 7:00 AM UTC every day
     - cron: '0 7 * * *'
