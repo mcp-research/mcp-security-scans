@@ -261,6 +261,7 @@ def main():
     try:
         # --- Authentication ---
         gh = get_github_client(app_id, private_key)
+        print(f"Got this key: {private_key}")
         
         # --- Load repositories and properties ---
         logging.info(f"Loading repositories and properties for organization [{args.target_org}]...")
