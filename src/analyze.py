@@ -18,12 +18,12 @@ from github import (
 )
 from functions import should_scan_repository
 
-# --- Configuration ---
+# Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
 
-# --- Constants ---
+# Constants
 TARGET_ORG = "mcp-research"  # The organization to scan
 GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
 CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
@@ -304,8 +304,8 @@ def main():
         duration = end_time - start_time
         
         summary_lines = [
-            f"**GHAS Alert Scanning Summary**",
-            f"---------------------------",
+            "**GHAS Alert Scanning Summary**",
+            "Security Scan Results",
             f"- Organization: `{args.target_org}`",
             f"- Scan limit (--num-repos): `{args.num_repos}`",
             f"- Total repositories in organization: `{total_repos}`",

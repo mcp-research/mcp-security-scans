@@ -13,12 +13,12 @@ from typing import Any # Or replace with specific githubkit client type
 from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
 from functions import should_scan_repository
 
-# --- Configuration ---
+# Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger("githubkit").setLevel(logging.WARNING) # Reduce verbosity from githubkit
 load_dotenv() # Load environment variables from .env file
 
-# --- Constants ---
+# Constants
 MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
 LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
 JSON_FILES_DIR_IN_REPO = Path("server/src/data/split")
@@ -302,7 +302,7 @@ def process_repository_from_json(
     # Return all counts and flags
     return processed_increment, dependabot_increment, skipped_non_fork, failed_fork
 
-# --- Main Logic ---
+# Main Logic
 
 def main():
     start_time = datetime.datetime.now() # Record start time
@@ -325,8 +325,7 @@ def main():
         return
 
     try:
-        # --- Authentication ---
-        # Pass private key content directly
+        # Authentication
         gh = get_github_client(app_id, private_key)
 
         # Load all existing repos from the target org
@@ -394,7 +393,7 @@ def main():
         # Prepare summary messages
         summary_lines = [
             f"**MCP Repository Processing Summary**",
-            f"-----------------------------------",
+            "Security Scan Results",
             f"- Processing Limit (--num-repos): `{num_to_process}`",
             f"- Total JSON files found: `{len(all_json_files)}`",
             f"- Unique source repositories encountered: `{len(processed_repos)}`",
