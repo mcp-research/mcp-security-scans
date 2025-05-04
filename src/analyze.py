@@ -267,10 +267,10 @@ def main():
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         
-        # scan the folder
-        for path in Path(args.folder).rglob("*.py"):
-            print(path)
-            
+        # Show all files in the path recursively
+        for file_path in Path(args.folder).rglob("*"):
+            print(file_path)
+
         # Initialize counters
         total_repos = len(existing_repos)
         scanned_repos = 0
