@@ -238,6 +238,8 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", 
                         help="Enable verbose logging")
     
+    parser.add_argument("--folder", "-f", type=str, default=".", help="Folder to scan")
+    
     args = parser.parse_args()
     
     if args.verbose:
@@ -259,12 +261,17 @@ def main():
     try:
         # --- Authentication ---
         gh = get_github_client(app_id, private_key)
+        print(f"Got this key: {private_key}")
         
         # --- Load repositories and properties ---
         logging.info(f"Loading repositories and properties for organization [{args.target_org}]...")
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         
+        # Show all files in the path recursively
+        for file_path in Path(args.folder).rglob("*"):
+            print(file_path)
+
         # Initialize counters
         total_repos = len(existing_repos)
         scanned_repos = 0
