@@ -62,6 +62,21 @@ def safe_int_convert(value, default=0):
     except (ValueError, TypeError):
         return default
 
+def get_report_filename(target_org: str, output_dir: str, extension: str) -> str:
+    """
+    Generate a standardized report filename.
+    
+    Args:
+        target_org: Target organization name
+        output_dir: Directory to save the report
+        extension: File extension (e.g., 'json', 'md')
+        
+    Returns:
+        Full path to the report file
+    """
+    date_str = datetime.datetime.now().strftime('%Y%m%d')
+    return f"{output_dir}/ghas_report_{target_org}_{date_str}.{extension}"
+
 def generate_report(repo_properties: List[Dict], target_org: str, output_dir: str = REPORT_DIR) -> Dict:
     """
     Generate a report from repository properties.
@@ -161,14 +176,14 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
     }
     
     # Write JSON report
-    report_file = f"{output_dir}/ghas_report_{target_org}_{datetime.datetime.now().strftime('%Y%m%d')}.json"
+    report_file = get_report_filename(target_org, output_dir, 'json')
     with open(report_file, 'w') as f:
         json.dump(stats, f, indent=2)
     logging.info(f"JSON report saved to {report_file}")
     
     # Write Markdown report
     summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
-    md_report_file = f"{output_dir}/ghas_report_{target_org}_{datetime.datetime.now().strftime('%Y%m%d')}.md"
+    md_report_file = get_report_filename(target_org, output_dir, 'md')
     _write_markdown_report(stats, md_report_file, summary_file_path)
     #  when running in GitHub Actions, write the report also to the GITHUB_STEP_SUMMARY file
     if summary_file_path:
@@ -213,22 +228,22 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
             f.write(f"## Coverage\n\n")
             f.write(f"- **Scan Coverage:** {scan_coverage:.1f}%\n")
         
-        # Top repositories with most alerts
-        if not summary_file_path:
+        # Only show detailed repository section if not running in CI
+        if not (os.getenv("CI") or summary_file_path):
             f.write(f"\n## Top Repositories with Alerts\n\n")
             f.write("| Repository | Total Alerts | Code Alerts | Secret Alerts | Dependency Alerts | Last Scanned |\n")
             f.write("|------------|-------------|------------|--------------|-------------------|-------------|\n")
-        
-        # Sort repositories by total alerts
-        top_repos = sorted(
-            stats['repos_alerts'].items(), 
-            key=lambda x: x[1]['total'], 
-            reverse=True
-        )
-        
-        # List top 10 repositories or all if less than 10
-        for repo_name, repo_data in top_repos[:10]:
-            f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | {repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
+            
+            # Sort repositories by total alerts
+            top_repos = sorted(
+                stats['repos_alerts'].items(), 
+                key=lambda x: x[1]['total'], 
+                reverse=True
+            )
+            
+            # List top 10 repositories or all if less than 10
+            for repo_name, repo_data in top_repos[:10]:
+                f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | {repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
 
 def print_console_summary(stats: Dict) -> None:
     """
@@ -320,7 +335,7 @@ def main() -> None:
         summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
         if summary_file_path:
             try:
-                md_report_path = f"{args.output_dir}/ghas_report_{args.target_org}_{datetime.datetime.now().strftime('%Y%m%d')}.md"
+                md_report_path = get_report_filename(args.target_org, args.output_dir, 'md')
                 if os.path.exists(md_report_path):
                     with open(md_report_path, "r") as md_file:
                         content = md_file.read()
