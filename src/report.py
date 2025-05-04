@@ -229,7 +229,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
             f.write(f"- **Scan Coverage:** {scan_coverage:.1f}%\n")
         
         # Only show detailed repository section if not running in CI
-        if not (os.getenv("CI") or summary_file_path):
+        if not (os.getenv("CI")):
             f.write(f"\n## Top Repositories with Alerts\n\n")
             f.write("| Repository | Total Alerts | Code Alerts | Secret Alerts | Dependency Alerts | Last Scanned |\n")
             f.write("|------------|-------------|------------|--------------|-------------------|-------------|\n")
@@ -268,15 +268,17 @@ def print_console_summary(stats: Dict) -> None:
         scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
         print(f"Scan Coverage: {scan_coverage:.1f}%")
     
-    print("\nTop 5 Repositories with Most Alerts:")
-    top_repos = sorted(
-        stats['repos_alerts'].items(), 
-        key=lambda x: x[1]['total'], 
-        reverse=True
-    )
-    
-    for i, (repo_name, repo_data) in enumerate(top_repos[:5], 1):
-        print(f"{i}. {repo_name}: {repo_data['total']} alerts")
+    # Only show sensitive data if not running in CI
+    if not (os.getenv("CI")):
+        print("\nTop 5 Repositories with Most Alerts:")
+        top_repos = sorted(
+            stats['repos_alerts'].items(), 
+            key=lambda x: x[1]['total'], 
+            reverse=True
+        )
+        
+        for i, (repo_name, repo_data) in enumerate(top_repos[:5], 1):
+            print(f"{i}. {repo_name}: {repo_data['total']} alerts")
     
     print(f"\nDetailed reports saved to {REPORT_DIR}/ directory")
 
