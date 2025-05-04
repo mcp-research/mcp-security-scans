@@ -16,12 +16,12 @@ from github import (
     show_rate_limit
 )
 
-# --- Configuration ---
+# Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
 
-# --- Constants ---
+# Constants
 DEFAULT_TARGET_ORG = "mcp-research"  # Default organization to scan
 CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
 SECRET_ALERTS = "SecretAlerts"  # Property name for secret scanning alerts
@@ -313,40 +313,25 @@ def main() -> None:
         return
     
     try:
-        # --- Authentication ---
+        # Authentication
         gh = get_github_client(app_id, private_key)
         
-        # --- Load repository properties ---
+        # Load repository properties
         logging.info(f"Loading repository properties for organization [{args.target_org}]...")
         repo_properties = list_all_repository_properties_for_org(gh, args.target_org)
         
         logging.info(f"Found properties for {len(repo_properties)} repositories in organization {args.target_org}")
         
-        # --- Generate report ---
+        # Generate report
         stats = generate_report(repo_properties, args.target_org, args.output_dir)
         
-        # --- Print summary to console ---
+        # Print summary to console
         print_console_summary(stats)
         
-        # --- Show GitHub API rate limit ---
+        # Show GitHub API rate limit
         show_rate_limit(gh)
         
-        # --- Write summary to GITHUB_STEP_SUMMARY if available ---
-        summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
-        if summary_file_path:
-            try:
-                md_report_path = get_report_filename(args.target_org, args.output_dir, 'md')
-                if os.path.exists(md_report_path):
-                    with open(md_report_path, "r") as md_file:
-                        content = md_file.read()
-                        
-                    with open(summary_file_path, "a") as summary_file:
-                        summary_file.write(content + "\n\n")
-                    logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
-            except Exception as e:
-                logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
-        
-        # --- Log execution time ---
+        # Log execution time
         end_time = datetime.datetime.now()
         duration = end_time - start_time
         logging.info(f"Report generation completed in {duration}")
