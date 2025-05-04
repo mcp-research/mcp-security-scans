@@ -238,6 +238,8 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", 
                         help="Enable verbose logging")
     
+    parser.add_argument("--folder", "-f", type=str, default=".", help="Folder to scan")
+    
     args = parser.parse_args()
     
     if args.verbose:
@@ -265,6 +267,10 @@ def main():
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         
+        # scan the folder
+        for path in Path(args.folder).rglob("*.py"):
+            print(path)
+            
         # Initialize counters
         total_repos = len(existing_repos)
         scanned_repos = 0
