@@ -178,28 +178,23 @@ def process_repository_from_json(
     gh: Any, # Replace Any with the actual type of the GitHub client
     target_org: str,
     existing_repos_properties: list[dict],
-    processed_repos: set[str]
-) -> tuple[int, int, bool, bool]: # Added bool returns for skipped_non_fork and failed_fork
+    processed_repos: set[str],
+    failed_forks: dict[str, str] # Changed to dict to store repo name -> failure reason
+) -> tuple[int, int, bool, bool]:
     """
     Processes a single repository based on data from a JSON file.
-
-    Checks for duplicates, handles forking, enables GHAS, checks Dependabot,
-    and updates the set of processed repositories.
 
     Args:
         existing_repos: List of existing repositories in the target organization.
         json_file_path: Path to the JSON file containing repository info.
         gh: Authenticated GitHub client instance.
         target_org: The target GitHub organization to fork into.
+        existing_repos_properties: List of repository properties.
         processed_repos: A set of already processed source repository full names (e.g., "owner/repo").
-                         This set will be modified by this function.
+        failed_forks: A dict mapping repository names to their failure reasons.
 
     Returns:
-        A tuple (processed_increment, dependabot_increment, skipped_non_fork, failed_fork):
-        - processed_increment: 1 if the repository was successfully processed (forked/found + GHAS attempted), 0 otherwise.
-        - dependabot_increment: 1 if Dependabot config was found among processed, 0 otherwise.
-        - skipped_non_fork: True if skipped because repo exists but isn't correct fork, False otherwise.
-        - failed_fork: True if fork creation/check failed, False otherwise.
+        A tuple (processed_increment, dependabot_increment, skipped_non_fork, failed_fork)
     """
     processed_increment = 0
     dependabot_increment = 0
@@ -248,6 +243,8 @@ def process_repository_from_json(
                 # Fork creation/check genuinely failed.
                 failed_fork = True
                 logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
+                # Add to failed_forks set
+                failed_forks[source_repo_full_name] = "Fork creation/check failed"
                 # Don't add to processed_repos because we might want to retry later
                 return 0, 0, False, failed_fork # Return failed status
 
@@ -287,17 +284,18 @@ def process_repository_from_json(
         processed_increment = 1 # Mark as successfully processed *this run*
 
     except json.JSONDecodeError:
+        error_reason = f"Invalid JSON in file {json_file_path.name}"
         logging.error(f"Skipping [{json_file_path.name}]: Invalid JSON.")
-        # Mark as failed for reporting purposes, although it's a data issue
-        failed_fork = True # Use failed_fork flag to indicate *some* failure occurred for this item
+        failed_forks[source_repo_full_name] = error_reason if source_repo_full_name else error_reason
+        failed_fork = True
     except Exception as e:
+        error_reason = f"Unexpected error: {str(e)}"
         logging.error(f"An unexpected error occurred processing [{json_file_path.name}]: [{e}]")
-        # Ensure we don't count this as processed if an error occurred mid-way
+        if source_repo_full_name:
+            failed_forks[source_repo_full_name] = error_reason
         processed_increment = 0
         dependabot_increment = 0
-        failed_fork = True # Mark as failed
-        # We might have added to processed_repos before the error,
-        # but the logic prevents reprocessing anyway.
+        failed_fork = True
 
     # Return all counts and flags
     return processed_increment, dependabot_increment, skipped_non_fork, failed_fork
@@ -358,6 +356,7 @@ def main():
         processed_repos = set() # Keep track of processed source repos to avoid duplicates
         skipped_non_fork_count = 0 # Track repos skipped because they exist but aren't the correct fork
         failed_fork_count = 0 # Track repos where fork creation/check failed
+        failed_forks = dict() # Dict to collect repositories that failed to fork with reasons
 
         # Iterate over all JSON files until the desired number is processed
         for json_file_path in all_json_files:
@@ -373,7 +372,8 @@ def main():
                 gh,
                 args.target_org,
                 existing_repos_properties,
-                processed_repos # Pass the set (it will be modified in place)
+                processed_repos, # Pass the set (it will be modified in place)
+                failed_forks # Pass the dict to collect failed forks with reasons
             )
 
             # Update counters based on the result from the helper function
@@ -405,6 +405,12 @@ def main():
             f"- Final repositories in target org `{args.target_org}`: `{final_repo_count}`",
             f"- Total execution time: `{duration}`"
         ]
+
+        # Add failed forks list with reasons if any exist
+        if failed_forks:
+            summary_lines.append("\nFailed Repository Details:")
+            for failed_repo, reason in sorted(failed_forks.items()): # Sort for consistent output
+                summary_lines.append(f"- `{failed_repo}`: {reason}")
 
         # Log summary to console
         logging.info("Processing Summary")
