@@ -34,21 +34,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11' # Use a specific Python version
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip # The directory to cache
-          # Create a unique key based on runner OS, Python version, and requirements.txt hash
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          # Fallback keys if the exact key is not found
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: 'pip' # Cache the Python package installer
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "requirements.txt not found"; exit 1; fi
+        run: pip install -r requirements.txt
 
       - name: Run MCP Repo Processing Script
         env:
