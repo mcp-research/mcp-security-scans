@@ -6,6 +6,7 @@ import logging
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+import json
 from dotenv import load_dotenv
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
@@ -142,7 +143,7 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> int:
         logging.error(f"Unexpected error getting dependency alerts for [{owner}/{repo}]: {e}")
         return 0
 
-def scan_repository(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, int, int, int]:
+def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, int, int, int]:
     """
     Scans a single repository for GHAS alerts and updates its properties.
     
@@ -226,6 +227,99 @@ def scan_repository(gh: Any, repo: FullRepository, existing_repos_properties: Li
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, 0, 0, 0
 
+def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_repo_path: Path) -> None:
+    """
+    Clones a repository to a local path using the GitHub API tarball download.
+    
+    Args:
+        gh: Authenticated GitHub client instance.
+        owner: Owner of the repository.
+        repo_name: Repository name.
+        branch: Branch to clone (usually the default branch).
+        local_repo_path: Path where the repository will be cloned.
+    """
+    # create the directory if it doesn't exist
+    local_repo_path.mkdir(parents=True, exist_ok=True)
+
+    logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
+    tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
+    tarball_url = tarball_json.url
+    
+    # download the tarball
+    os.system(f"curl -L {tarball_url} -o {local_repo_path}.tar.gz")
+    os.system(f"tar -xvf {local_repo_path}.tar.gz -C {local_repo_path}")
+
+
+def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict], local_repo_path: Path) -> Optional[Dict]:
+    # scan the repo to find a txt file that defines "mcpServers": {
+    owner = repo.owner.login if repo.owner else TARGET_ORG
+    repo_name = repo.name
+
+    # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
+    # search without spaces in the file content
+    mcp_composition = None
+    for root, dirs, files in os.walk(local_repo_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            with open(file_path, 'r') as f:
+                content = f.read()
+                # strip all spaces from the content
+                content = content.replace(" ", "")
+                if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
+                    # grab the json string that contains the mcpServers information
+                    # search for the first '{' and the last '}' from where we found the search string
+                    start = content.find('"mcpServers":{')
+                    if start == -1:
+                        start = content.find('"mcp":{"servers":{')
+                    if start != -1:
+                        # check if there was an opening bracket before the search string
+                        if content[start-1] == '{':
+                            # if there was an opening bracket, find the start of the json string
+                            start -= 1
+
+                        # find the end of the json string by counting all the next opening { and finding as much } chars
+                        end = start
+                        open_brackets = 1
+                        close_brackets = 0
+                        while open_brackets != close_brackets:
+                            end += 1
+                            # Check if we've reached the end of the content
+                            if end >= len(content):
+                                logging.error(f"Malformed JSON: Unclosed brackets in file")
+                                mcp_composition = None
+                                break
+                            if content[end] == '{':
+                                open_brackets += 1
+                            elif content[end] == '}':
+                                close_brackets += 1
+                        # extract the json string
+                        mcp_composition = content[start:end+1]
+                        logging.info(f"Found MCP composition in file [{file_path}]")
+                        logging.debug(f"MCP composition: {mcp_composition}")
+                        # read the object from the json string
+                        # Replace escaped newlines and normalize the JSON string
+                        clean_json_str = mcp_composition.replace('\n', ' ')
+                        try:
+                            # Try to load the cleaned JSON string
+                            mcp_composition = json.loads(clean_json_str)
+                        except json.JSONDecodeError as e:
+                            # If first attempt fails, try parsing as a raw string literal
+                            try:
+                                # Try to evaluate as a raw string (useful for escaped sequences)
+                                import ast
+                                raw_str = ast.literal_eval(f"'''{clean_json_str}'''")
+                                mcp_composition = json.loads(raw_str)
+                            except Exception as e:
+                                logging.error(f"Failed to parse MCP composition JSON: {e}")
+                                logging.debug(f"Problematic JSON: {mcp_composition}")
+                                mcp_composition = None
+                        break
+        if mcp_composition:
+            break
+    
+    return mcp_composition
+
+
 def main():
     """Main execution function."""
     start_time = datetime.datetime.now()
@@ -274,9 +368,9 @@ def main():
         total_code_alerts = 0
         total_secret_alerts = 0
         total_dependency_alerts = 0
-        
-        logging.info(f"Found {total_repos} repositories in organization {args.target_org}")
-        
+
+        logging.info(f"Found [{total_repos}] repositories in organization [{args.target_org}]")
+
         # Process repositories
         for idx, repo in enumerate(existing_repos):
             if scanned_repos >= args.num_repos:
@@ -286,7 +380,20 @@ def main():
             logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
-            success, code_alerts, secret_alerts, dep_alerts = scan_repository(gh, repo, existing_repos_properties)
+            success, code_alerts, secret_alerts, dep_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
+
+            # locate the default branch of the fork
+            fork_default_branch = repo.default_branch if repo.fork else None
+
+            # clone the repo to a temp directory
+            local_repo_path = Path(f"tmp/{repo.name}")
+            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+
+            # Scan repository for MCP composition
+            composition = scan_repo_for_mcp_composition(gh, repo, existing_repos_properties, local_repo_path)
+            if composition:
+                logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
+
             
             if success:
                 scanned_repos += 1
