@@ -8,6 +8,7 @@ from githubkit.exception import RequestError, RequestFailed, RequestTimeout
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
+import time
 
 # Import the local functions
 from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
@@ -309,6 +310,10 @@ def process_repository_from_json(
 
         # Update the fork with upstream changes
         update_forked_repo(gh, target_org, target_repo_name)
+
+        # Wait 3 seconds to allow the fork to update with latest alerts
+        logging.info("Waiting for fork to update with latest changes...")
+        time.sleep(3)
 
         enable_ghas_features(gh, target_org, target_repo_name)
         dependabot_configured = check_dependabot_config(gh, target_org, target_repo_name)
