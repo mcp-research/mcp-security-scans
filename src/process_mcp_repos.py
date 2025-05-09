@@ -172,6 +172,43 @@ def reprocess_repository(properties: dict) -> bool:
     # Reprocess if none of the above conditions are met
     return True	
 
+def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
+    """
+    Updates the forked repository with changes from the upstream source.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        target_org: The target GitHub organization where the fork is located.
+        target_repo_name: The name of the forked repository in the target organization.
+    """
+    try:
+        # first we need to locate the default branch of the fork
+        fork_info = gh.rest.repos.get(
+            owner=target_org,
+            repo=target_repo_name
+        )
+
+        fork_default_branch = None
+        if not fork_info.default_branch:
+            logging.warning(f"Could not find default branch for [{target_org}/{target_repo_name}]. Skipping update.")
+            return
+        else:
+            fork_default_branch = fork_info.default_branch
+
+        if fork_default_branch:
+            logging.info(f"Updating forked repository: [{target_org}/{target_repo_name}]")
+            gh.rest.repos.update_branch(
+                owner=target_org,
+                repo=target_repo_name,
+                branch=fork_default_branch, # update the default branch
+                expected_head=fork_default_branch # ensure the branch is at the default head
+            )
+            logging.info(f"Successfully updated forked repository: [{target_org}/{target_repo_name}]")
+    except RequestFailed as e:
+        handle_github_api_error(e, f"updating forked repository [{target_org}/{target_repo_name}]")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred updating forked repository [{target_org}/{target_repo_name}]: [{e}]")
+
 def process_repository_from_json(
     existing_repos: list[FullRepository],
     json_file_path: Path,
@@ -269,6 +306,9 @@ def process_repository_from_json(
 
         # If fork exists and needs processing (or properties check passed)
         logging.info(f"Processing source repository: [{source_repo_full_name}] (Target: [{target_org}/{target_repo_name}])")
+
+        # Update the fork with upstream changes
+        update_forked_repo(gh, target_org, target_repo_name)
 
         enable_ghas_features(gh, target_org, target_repo_name)
         dependabot_configured = check_dependabot_config(gh, target_org, target_repo_name)
