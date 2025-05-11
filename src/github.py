@@ -342,6 +342,10 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         branch: Branch to clone (usually the default branch).
         local_repo_path: Path where the repository will be cloned.
     """
+    # check if the folder already exists
+    if not local_repo_path.exists():
+        local_repo_path.mkdir(parents=True)
+
     logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
     tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
     tarball_url = str(tarball_json.url)

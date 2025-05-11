@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.analyze import clone_repository, scan_repo_for_mcp_composition
+from src.analyze import clone_repository, scan_repo_for_mcp_composition, get_composition_info
 from src.github import get_github_client
 
 class TestMcpScan(unittest.TestCase):
@@ -96,8 +96,7 @@ class TestMcpScan(unittest.TestCase):
             self.fail(f"analyze.clone_repository failed: {e}")
 
         logging.info(f"Scanning [{cloned_repo_path}] for MCP composition using analyze.scan_repo_for_mcp_composition")
-        # Assuming existing_repos_properties can be an empty list for this specific test
-        mcp_composition = scan_repo_for_mcp_composition(self.gh, mock_repo, [], cloned_repo_path)
+        mcp_composition = scan_repo_for_mcp_composition(cloned_repo_path)
 
         # The cognee repository (https://github.com/topoteretes/cognee) might not have an MCP file.
         # If it's expected to have one, this assertion is correct.
@@ -114,6 +113,53 @@ class TestMcpScan(unittest.TestCase):
             else:
                 self.fail(f"MCP composition does not have the expected structure: {mcp_composition}")
     
+    def test_mcp_composition_cognee_example(self):
+        """Test scanning the example directory for MCP composition using scan_repo_for_mcp_composition and get_composition_info."""
+        # Path to the directory containing the example config
+        example_dir = self.base_temp_dir.parent / "tests" / "test_mcp_scan" / "examples" / "cognee"
+        self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
+        # Use scan_repo_for_mcp_composition to scan the directory
+        mcp_composition = scan_repo_for_mcp_composition(example_dir)
+        self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition returned None for the example directory.")
+        self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in scanned composition.")
+        logging.info(f"Loaded and validated mcp-composition-cognee example using scan_repo_for_mcp_composition: [{mcp_composition}]")
+
+        # New test: call get_composition_info and check for 'npx' in the result
+        info = get_composition_info(mcp_composition)
+        if info is not None:
+            # If info is a dict or str, check if 'npx' is present in any value
+            if isinstance(info, dict):
+                found_uv = any('uv' in str(v) for v in info.values())
+            else:
+                found_uv = 'uv' in str(info)
+            self.assertTrue(found_uv, f"get_composition_info did not return or contain 'uv': [{info}]")
+        else:
+            self.fail("get_composition_info returned None, expected a result containing 'uv'.")
+
+    def test_mcp_composition_lux_example(self):
+        """Test scanning the example directory for MCP composition using scan_repo_for_mcp_composition and get_composition_info."""
+        # Path to the directory containing the example config
+        example_dir = self.base_temp_dir.parent / "tests" / "test_mcp_scan" / "examples" / "lux159__mcp-server-kubernetes-4834df2"
+        self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
+        # Use scan_repo_for_mcp_composition to scan the directory
+        mcp_composition = scan_repo_for_mcp_composition(example_dir)
+        self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition returned None for the example directory.")
+        self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in scanned composition.")
+        logging.info(f"Loaded and validated mcp-composition-cognee example using scan_repo_for_mcp_composition: [{mcp_composition}]")
+
+        # New test: call get_composition_info and check for 'npx' in the result
+        info = get_composition_info(mcp_composition)
+        if info is not None:
+            # If info is a dict or str, check if 'npx' is present in any value
+            if isinstance(info, dict):
+                found_npx = any('npx' in str(v) for v in info.values())
+            else:
+                found_npx = 'npx' in str(info)
+            self.assertTrue(found_npx, f"get_composition_info did not return or contain 'npx': [{info}]")
+        else:
+            self.fail("get_composition_info returned None, expected a result containing 'npx'.")
+
+
     @classmethod
     def tearDownClass(cls):
         # Clean up the base temporary directory

@@ -68,7 +68,10 @@ This project contains a Python script to automate the process of forking reposit
 Ensure the environment variables `GH_APP_ID` and `GH_APP_PRIVATE_KEY` are set. Then, run the script from the root directory of this project:
 
 ```bash
-python src/process_mcp_repos.py
+python -m src.process_mcp_repos # will process all repos found and fork them into the target org
+python -m src.analyze --num-repos x # will analyze the forks and store found information into the forks repository properties
+python -m src.report # will generate a report of the forks based on the information stored in the forks repository properties
+
 ```
 
 **Optional Arguments:**
@@ -78,13 +81,13 @@ python src/process_mcp_repos.py
 **Example:**
 
 ```bash
-# Assuming environment variables are set
-python src/process_mcp_repos.py --target-org my-testing-org
+# Assuming environment variables are set and the virtual environment is active
+python -m src.process_mcp_repos --target-org my-testing-org
 ```
 
 The script will log its progress to the console.
 
 ## Testing
 ```bash
-python -m unittest tests/test_mcp_scan.py
+python -m unittest tests.test_mcp_scan
 ```

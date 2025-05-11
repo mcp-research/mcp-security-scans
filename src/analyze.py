@@ -23,7 +23,7 @@ from .functions import should_scan_repository
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
+logging.getLogger("githubkit").setLevel(logging.DEBUG)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
 
 # Constants
@@ -229,10 +229,8 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, 0, 0, 0
 
-def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict], local_repo_path: Path) -> Optional[Dict]:
+def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
     # scan the repo to find a txt file that defines "mcpServers": {
-    owner = repo.owner.login if repo.owner else TARGET_ORG
-    repo_name = repo.name
 
     # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
     # search without spaces in the file content
@@ -269,8 +267,8 @@ def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_
                     logging.error(f"Error reading file {file_path}: {e}")
                     continue # Skip to the next file
             
-                # strip all spaces from the content
-                content = content.replace(" ", "")
+                # strip all spaces/tabs/newlines from the content
+                content = content.replace(" ", "").replace("\n", "").replace("\t", "")
                 if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
                     # grab the json string that contains the mcpServers information
                     # search for the first '{' and the last '}' from where we found the search string
@@ -303,13 +301,14 @@ def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_
                         logging.info(f"Found MCP composition in file [{file_path}]")
                         logging.debug(f"MCP composition: {mcp_composition}")
                         # read the object from the json string
-                        # Replace escaped newlines and normalize the JSON string
-                        clean_json_str = mcp_composition.replace('\n', ' ')
+                        # cleanup already done during reading
+                        clean_json_str = mcp_composition
                         try:
                             # Try to load the cleaned JSON string
                             mcp_composition = json.loads(clean_json_str)
                         except json.JSONDecodeError as e:
                             # If first attempt fails, try parsing as a raw string literal
+                            logging.debug(f"Failed to parse JSON: {e}")
                             try:
                                 # Try to evaluate as a raw string (useful for escaped sequences)
                                 import ast
@@ -317,7 +316,7 @@ def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_
                                 mcp_composition = json.loads(raw_str)
                             except Exception as e:
                                 logging.error(f"Failed to parse MCP composition JSON: {e}")
-                                logging.debug(f"Problematic JSON: {mcp_composition}")
+                                logging.debug(f"Problematic JSON: {raw_str}")
                                 mcp_composition = None
                         break
         if mcp_composition:
@@ -325,6 +324,24 @@ def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_
     
     return mcp_composition
 
+def get_composition_info(composition: Dict) -> Dict:
+    """
+    Extracts runtime command info from the MCP composition dict.
+    Returns a dict with the first server's command and args, or empty if not found.
+    """
+    if not composition or "mcpServers" not in composition:
+        return {}
+    servers = composition["mcpServers"]
+    for server_name, server_info in servers.items():
+        command = server_info.get("command", "")
+        # check if command ends in uv 
+        if command.endswith("uv"):
+            server_type = "uv"
+            
+        args = server_info.get("args", [])
+        # Return info for the first server found
+        return {"server": server_name, "server_type": server_type, "command": command, "args": args}
+    return {}
 
 def main():
     """Main execution function."""
@@ -388,6 +405,8 @@ def main():
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dep_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
 
+            # temporarily scan all repos for mcp configs, as we did not do so before
+            # this code needs to move in the if success block later on
             # locate the default branch of the fork
             fork_default_branch = repo.default_branch if repo.fork else None
 
@@ -396,10 +415,10 @@ def main():
             clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
 
             # Scan repository for MCP composition
-            composition = scan_repo_for_mcp_composition(gh, repo, existing_repos_properties, local_repo_path)
+            composition = scan_repo_for_mcp_composition(local_repo_path)
             if composition:
                 logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
-
+                runtime = get_composition_info(composition)
             
             if success:
                 scanned_repos += 1
