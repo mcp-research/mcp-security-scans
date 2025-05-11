@@ -7,6 +7,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 from githubkit.versions.latest.models import FullRepository
 from typing import Any
+import os
+import subprocess
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -329,6 +331,48 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
         logging.error(f"An unexpected error occurred while fetching custom repository properties for [{target_org}/{target_repo_name}]: [{e}]")
         raise
 
+def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_repo_path: Path) -> None:
+    """
+    Clones a repository to a local path using the GitHub API tarball download.
+    
+    Args:
+        gh: Authenticated GitHub client instance.
+        owner: Owner of the repository.
+        repo_name: Repository name.
+        branch: Branch to clone (usually the default branch).
+        local_repo_path: Path where the repository will be cloned.
+    """
+    logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
+    tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
+    tarball_url = str(tarball_json.url)
+    
+    # download the tarball
+    logging.info(f"Downloading tarball from [{tarball_url}]")
+    tarball_file = f"{local_repo_path}.tar.gz"
+    curl_command = ["curl", "-L", tarball_url, "-o", tarball_file]
+    try:
+        process = subprocess.run(curl_command, capture_output=True, text=True, check=True)
+        logging.debug(f"Curl command output: {process.stdout}")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error downloading tarball for [{repo_name}]: {e}")
+        logging.error(f"Curl stderr: {e.stderr}")
+        return # Stop if download fails
+
+    # extract the tarball
+    tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
+    try:
+        process = subprocess.run(tar_command, capture_output=True, text=True, check=True)
+        logging.debug(f"Tar command output: {process.stdout}")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error extracting tarball for [{repo_name}]: {e}")
+        logging.error(f"Tar stderr: {e.stderr}")
+    finally:
+        # Clean up the tarball
+        try:
+            os.remove(tarball_file)
+            logging.debug(f"Removed tarball file [{tarball_file}]")
+        except OSError as e:
+            logging.error(f"Error removing tarball file [{tarball_file}]: {e}")
 
 def show_rate_limit(gh: GitHub):
     """Displays the current rate limit status for the authenticated GitHub client."""

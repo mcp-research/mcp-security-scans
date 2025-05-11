@@ -83,3 +83,8 @@ python src/process_mcp_repos.py --target-org my-testing-org
 ```
 
 The script will log its progress to the console.
+
+## Testing
+```bash
+python -m unittest tests/test_mcp_scan.py
+```

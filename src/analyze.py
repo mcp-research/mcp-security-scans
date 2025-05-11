@@ -7,17 +7,19 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import json
+import mimetypes
 from dotenv import load_dotenv
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 
 # Import the local functions
-from github import (
+from .github import (
     get_github_client, list_all_repositories_for_org,
     list_all_repository_properties_for_org, get_repository_properties,
-    update_repository_properties, show_rate_limit, handle_github_api_error
+    update_repository_properties, show_rate_limit, handle_github_api_error,
+    clone_repository
 )
-from functions import should_scan_repository
+from .functions import should_scan_repository
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -227,29 +229,6 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, 0, 0, 0
 
-def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_repo_path: Path) -> None:
-    """
-    Clones a repository to a local path using the GitHub API tarball download.
-    
-    Args:
-        gh: Authenticated GitHub client instance.
-        owner: Owner of the repository.
-        repo_name: Repository name.
-        branch: Branch to clone (usually the default branch).
-        local_repo_path: Path where the repository will be cloned.
-    """
-    # create the directory if it doesn't exist
-    local_repo_path.mkdir(parents=True, exist_ok=True)
-
-    logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
-    tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
-    tarball_url = tarball_json.url
-    
-    # download the tarball
-    os.system(f"curl -L {tarball_url} -o {local_repo_path}.tar.gz")
-    os.system(f"tar -xvf {local_repo_path}.tar.gz -C {local_repo_path}")
-
-
 def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict], local_repo_path: Path) -> Optional[Dict]:
     # scan the repo to find a txt file that defines "mcpServers": {
     owner = repo.owner.login if repo.owner else TARGET_ORG
@@ -261,8 +240,35 @@ def scan_repo_for_mcp_composition(gh: Any, repo: FullRepository, existing_repos_
     for root, dirs, files in os.walk(local_repo_path):
         for file in files:
             file_path = os.path.join(root, file)
+
+            # Guess the MIME type of the file
+            mime_type, _ = mimetypes.guess_type(file_path)
+
+            # Only process if it's likely a text file
+            # Also, explicitly allow files with no discernible MIME type (e.g. files without extensions, like 'LICENSE')
+            # as they are often text-based. The subsequent read attempt will handle actual binary content.
+            if mime_type is not None and not mime_type.startswith('text/'):
+                logging.debug(f"Skipping non-text file [{file_path}] with MIME type [{mime_type}]")
+                continue
+
             with open(file_path, 'r') as f:
-                content = f.read()
+                try:
+                    # Try reading with UTF-8 first
+                    content = f.read()
+                except UnicodeDecodeError:
+                    try:
+                        # If UTF-8 fails, try 'latin-1', which is more permissive
+                        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.")
+                        f.seek(0) # Reset file pointer to the beginning
+                        content = f.read().decode('latin-1', errors='ignore') 
+                    except Exception as e_latin1:
+                        # If both fail, log and skip the file
+                        logging.error(f"Could not read file {file_path} with UTF-8 or latin-1: {e_latin1}")
+                        continue # Skip to the next file
+                except Exception as e:
+                    logging.error(f"Error reading file {file_path}: {e}")
+                    continue # Skip to the next file
+            
                 # strip all spaces from the content
                 content = content.replace(" ", "")
                 if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
