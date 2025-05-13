@@ -458,7 +458,7 @@ def main():
         if failed_forks:
             summary_lines.append("\nFailed Repository Details:")
             for failed_repo, reason in sorted(failed_forks.items()): # Sort for consistent output
-                summary_lines.append(f"- `{failed_repo}`: {reason}")
+                summary_lines.append(f"1. `{failed_repo}`: {reason}")
 
         # Log summary to console
         logging.info("Processing Summary")
