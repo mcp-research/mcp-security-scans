@@ -456,7 +456,7 @@ def main():
 
         # Add failed forks list with reasons if any exist
         if failed_forks:
-            summary_lines.append("\nFailed Repository Details:")
+            summary_lines.append("Failed Repository Details:")
             for failed_repo, reason in sorted(failed_forks.items()): # Sort for consistent output
                 summary_lines.append(f"1. `{failed_repo}`: {reason}")
 
