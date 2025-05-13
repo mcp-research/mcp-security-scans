@@ -58,8 +58,6 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "requirements.txt not found"; exit 1; fi
-          # Install the package in development mode
-          pip install -e .
 
       - name: Run MCP Repository Analysis Script
         env:
@@ -88,4 +86,6 @@ jobs:
           fi
 
           echo "Running analysis script with arguments: Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG], Verbose: [$VERBOSE_ARG]"
-          python src/analyze.py $TARGET_ORG_ARG $NUM_REPOS_ARG $VERBOSE_ARG
+          # Run the script as a module rather than a direct script to handle the relative imports correctly
+          cd /home/runner/work/private-mcp-security-scans/private-mcp-security-scans/
+          python -m src.analyze $TARGET_ORG_ARG $NUM_REPOS_ARG $VERBOSE_ARG
