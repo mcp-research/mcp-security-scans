@@ -491,7 +491,7 @@ def main():
         if failed_analysis_repos:
             logging.info("Failed Analysis Repositories:")
             for repo in failed_analysis_repos:
-                logging.info(f"- {repo['name']}: {repo['reason']}")
+                logging.info(f"1. {repo['name']}: {repo['reason']}")
         
         show_rate_limit(gh)
         
