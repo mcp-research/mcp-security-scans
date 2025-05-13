@@ -422,7 +422,13 @@ def main():
             composition = scan_repo_for_mcp_composition(local_repo_path)
             if composition:
                 logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
-                runtime = get_composition_info(composition)
+                try:
+                    runtime = get_composition_info(composition)
+                    if runtime:
+                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                except Exception as e:
+                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                    runtime = {}
             
             if success:
                 scanned_repos += 1
