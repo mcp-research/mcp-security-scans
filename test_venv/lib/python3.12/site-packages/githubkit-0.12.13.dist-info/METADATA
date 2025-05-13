@@ -1,0 +1,147 @@
+Metadata-Version: 2.3
+Name: GitHubKit
+Version: 0.12.13
+Summary: GitHub SDK for Python
+License: MIT
+Keywords: github,octokit
+Author: yanyongyu
+Author-email: yyy@yyydl.top
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: all
+Provides-Extra: auth
+Provides-Extra: auth-app
+Provides-Extra: auth-oauth-device
+Provides-Extra: jwt
+Requires-Dist: PyJWT[crypto] (>=2.4.0,<3.0.0) ; extra == "jwt" or extra == "auth-app" or extra == "auth" or extra == "all"
+Requires-Dist: anyio (>=3.6.1,<5.0.0)
+Requires-Dist: hishel (>=0.0.21,<=0.2.0)
+Requires-Dist: httpx (>=0.23.0,<1.0.0)
+Requires-Dist: pydantic (>=1.9.1,<3.0.0,!=2.5.0,!=2.5.1)
+Requires-Dist: typing-extensions (>=4.11.0,<5.0.0)
+Project-URL: Documentation, https://github.com/yanyongyu/githubkit
+Project-URL: Homepage, https://github.com/yanyongyu/githubkit
+Project-URL: Repository, https://github.com/yanyongyu/githubkit
+Description-Content-Type: text/markdown
+
+<!-- markdownlint-disable MD041 -->
+<div align="center">
+
+[![githubkit](https://socialify.git.ci/yanyongyu/githubkit/image?description=1&descriptionEditable=%E2%9C%A8%20GitHub%20SDK%20for%20Python%20%E2%9C%A8&font=Bitter&language=1&pattern=Circuit%20Board&theme=Light)](https://github.com/yanyongyu/githubkit)
+
+</div>
+
+<p align="center">
+  <a href="https://raw.githubusercontent.com/yanyongyu/githubkit/master/LICENSE">
+    <img src="https://img.shields.io/github/license/yanyongyu/githubkit" alt="license">
+  </a>
+  <a href="https://pypi.python.org/pypi/githubkit">
+    <img src="https://img.shields.io/pypi/v/githubkit?logo=python&logoColor=edb641" alt="pypi">
+  </a>
+  <img src="https://img.shields.io/badge/python-3.8+-blue?logo=python&logoColor=edb641" alt="python">
+  <a href="https://github.com/psf/black">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg?logo=python&logoColor=edb641" alt="black">
+  </a>
+  <a href="https://github.com/Microsoft/pyright">
+    <img src="https://img.shields.io/badge/types-pyright-797952.svg?logo=python&logoColor=edb641" alt="pyright">
+  </a>
+  <a href="https://github.com/astral-sh/ruff">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json" alt="ruff">
+  </a>
+  <a href="https://results.pre-commit.ci/latest/github/yanyongyu/githubkit/master">
+    <img src="https://results.pre-commit.ci/badge/github/yanyongyu/githubkit/master.svg" alt="pre-commit" />
+  </a>
+</p>
+
+<div align="center">
+
+<!-- markdownlint-capture -->
+<!-- markdownlint-disable MD036 -->
+
+_✨ The modern, all-batteries-included GitHub SDK for Python ✨_
+
+_✨ Support both **sync** and **async** calls, **fully typed** ✨_
+
+_✨ Always up to date, like octokit ✨_
+
+<!-- markdownlint-restore -->
+
+</div>
+
+<p align="center">
+  <a href="https://yanyongyu.github.io/githubkit/"><b>Documentation</b></a> |
+  <a href="https://github.com/yanyongyu/githubkit/issues"><b>Report Bug</b></a> |
+  <a href="https://docs.github.com/"><b>GitHub Docs</b></a>
+</p>
+
+githubkit aims to be an easy-to-use, fully typed, and always up-to-date GitHub SDK for Python. It is inspired by [octokit](https://github.com/octokit).
+
+githubkit provides several features including:
+
+- Support both sync and async calls
+- Multiple authentication ways and OAuth flow support
+- Calling REST API and GraphQL easily
+- REST API versioning, including GHEC
+- Built-in pagination support
+- Optional data validation with [Pydantic](https://docs.pydantic.dev/latest/), for both webhook events and REST API responses
+- Built-in http cache (powered by [Hishel](https://hishel.com/) for HTTPX) and auto retry
+- Lazy loading of APIs and models
+- Fully typed APIs
+
+## Getting Started
+
+For more, see the [documentation](https://yanyongyu.github.io/githubkit).
+
+### Installation
+
+Install githubkit with the package manager of your choice:
+
+```bash
+pip install githubkit
+# or, use poetry
+poetry add githubkit
+# or, use pdm
+pdm add githubkit
+# or, use uv
+uv add githubkit
+```
+
+### Usage
+
+Create a [Personal Access Token (PAT)](https://github.com/settings/personal-access-tokens/new) and use it to create a `GitHub` instance:
+
+```python
+from githubkit import GitHub
+
+github = GitHub("<your_token_here>")
+```
+
+Then, enjoy githubkit now!
+
+```python
+from githubkit import Response
+from githubkit.versions.latest.models import FullRepository
+
+resp: Response[FullRepository] = github.rest.repos.get("owner", "repo")
+repo: FullRepository = resp.parsed_data
+print(repo.full_name)
+```
+
+## Development
+
+See the [development](https://yanyongyu.github.io/githubkit/contributing/) in the contributing guide.
+
+## Contributors
+
+Thanks to the following people who have contributed to this project:
+
+<a href="https://github.com/yanyongyu/githubkit/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=yanyongyu/githubkit&max=1000" alt="contributors" />
+</a>
+
