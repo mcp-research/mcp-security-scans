@@ -6,21 +6,24 @@ import logging
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+import json
+import mimetypes
 from dotenv import load_dotenv
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 
 # Import the local functions
-from github import (
+from .github import (
     get_github_client, list_all_repositories_for_org,
     list_all_repository_properties_for_org, get_repository_properties,
-    update_repository_properties, show_rate_limit, handle_github_api_error
+    update_repository_properties, show_rate_limit, handle_github_api_error,
+    clone_repository
 )
-from functions import should_scan_repository
+from .functions import should_scan_repository
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
+logging.getLogger("githubkit").setLevel(logging.DEBUG)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
 
 # Constants
@@ -142,7 +145,7 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> int:
         logging.error(f"Unexpected error getting dependency alerts for [{owner}/{repo}]: {e}")
         return 0
 
-def scan_repository(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, int, int, int]:
+def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, int, int, int]:
     """
     Scans a single repository for GHAS alerts and updates its properties.
     
@@ -226,6 +229,120 @@ def scan_repository(gh: Any, repo: FullRepository, existing_repos_properties: Li
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, 0, 0, 0
 
+def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
+    # scan the repo to find a txt file that defines "mcpServers": {
+
+    # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
+    # search without spaces in the file content
+    mcp_composition = None
+    for root, dirs, files in os.walk(local_repo_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+
+            # Guess the MIME type of the file
+            mime_type, _ = mimetypes.guess_type(file_path)
+
+            # Only process if it's likely a text file
+            # Also, explicitly allow files with no discernible MIME type (e.g. files without extensions, like 'LICENSE')
+            # as they are often text-based. The subsequent read attempt will handle actual binary content.
+            if mime_type is not None and not mime_type.startswith('text/'):
+                logging.debug(f"Skipping non-text file [{file_path}] with MIME type [{mime_type}]")
+                continue
+
+            with open(file_path, 'r') as f:
+                try:
+                    # Try reading with UTF-8 first
+                    content = f.read()
+                except UnicodeDecodeError:
+                    try:
+                        # If UTF-8 fails, try 'latin-1', which is more permissive
+                        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.")
+                        f.seek(0) # Reset file pointer to the beginning
+                        content = f.read().decode('latin-1', errors='ignore') 
+                    except Exception as e_latin1:
+                        # If both fail, log and skip the file
+                        logging.error(f"Could not read file {file_path} with UTF-8 or latin-1: {e_latin1}")
+                        continue # Skip to the next file
+                except Exception as e:
+                    logging.error(f"Error reading file {file_path}: {e}")
+                    continue # Skip to the next file
+            
+                # strip all spaces/tabs/newlines from the content
+                content = content.replace(" ", "").replace("\n", "").replace("\t", "")
+                if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
+                    # grab the json string that contains the mcpServers information
+                    # search for the first '{' and the last '}' from where we found the search string
+                    start = content.find('"mcpServers":{')
+                    if start == -1:
+                        start = content.find('"mcp":{"servers":{')
+                    if start != -1:
+                        # check if there was an opening bracket before the search string
+                        if content[start-1] == '{':
+                            # if there was an opening bracket, find the start of the json string
+                            start -= 1
+
+                        # find the end of the json string by counting all the next opening { and finding as much } chars
+                        end = start
+                        open_brackets = 1
+                        close_brackets = 0
+                        while open_brackets != close_brackets:
+                            end += 1
+                            # Check if we've reached the end of the content
+                            if end >= len(content):
+                                logging.error(f"Malformed JSON: Unclosed brackets in file")
+                                mcp_composition = None
+                                break
+                            if content[end] == '{':
+                                open_brackets += 1
+                            elif content[end] == '}':
+                                close_brackets += 1
+                        # extract the json string
+                        mcp_composition = content[start:end+1]
+                        logging.info(f"Found MCP composition in file [{file_path}]")
+                        logging.debug(f"MCP composition: {mcp_composition}")
+                        # read the object from the json string
+                        # cleanup already done during reading
+                        clean_json_str = mcp_composition
+                        try:
+                            # Try to load the cleaned JSON string
+                            mcp_composition = json.loads(clean_json_str)
+                        except json.JSONDecodeError as e:
+                            # If first attempt fails, try parsing as a raw string literal
+                            logging.debug(f"Failed to parse JSON: {e}")
+                            try:
+                                # Try to evaluate as a raw string (useful for escaped sequences)
+                                import ast
+                                raw_str = ast.literal_eval(f"'''{clean_json_str}'''")
+                                mcp_composition = json.loads(raw_str)
+                            except Exception as e:
+                                logging.error(f"Failed to parse MCP composition JSON: {e}")
+                                logging.debug(f"Problematic JSON: {raw_str}")
+                                mcp_composition = None
+                        break
+        if mcp_composition:
+            break
+    
+    return mcp_composition
+
+def get_composition_info(composition: Dict) -> Dict:
+    """
+    Extracts runtime command info from the MCP composition dict.
+    Returns a dict with the first server's command and args, or empty if not found.
+    """
+    if not composition or "mcpServers" not in composition:
+        return {}
+    servers = composition["mcpServers"]
+    for server_name, server_info in servers.items():
+        command = server_info.get("command", "")
+        # check if command ends in uv 
+        if command.endswith("uv"):
+            server_type = "uv"
+            
+        args = server_info.get("args", [])
+        # Return info for the first server found
+        return {"server": server_name, "server_type": server_type, "command": command, "args": args}
+    return {}
+
 def main():
     """Main execution function."""
     start_time = datetime.datetime.now()
@@ -274,9 +391,9 @@ def main():
         total_code_alerts = 0
         total_secret_alerts = 0
         total_dependency_alerts = 0
-        
-        logging.info(f"Found {total_repos} repositories in organization {args.target_org}")
-        
+
+        logging.info(f"Found [{total_repos}] repositories in organization [{args.target_org}]")
+
         # Process repositories
         for idx, repo in enumerate(existing_repos):
             if scanned_repos >= args.num_repos:
@@ -286,7 +403,22 @@ def main():
             logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
-            success, code_alerts, secret_alerts, dep_alerts = scan_repository(gh, repo, existing_repos_properties)
+            success, code_alerts, secret_alerts, dep_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
+
+            # temporarily scan all repos for mcp configs, as we did not do so before
+            # this code needs to move in the if success block later on
+            # locate the default branch of the fork
+            fork_default_branch = repo.default_branch if repo.fork else None
+
+            # clone the repo to a temp directory
+            local_repo_path = Path(f"tmp/{repo.name}")
+            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+
+            # Scan repository for MCP composition
+            composition = scan_repo_for_mcp_composition(local_repo_path)
+            if composition:
+                logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
+                runtime = get_composition_info(composition)
             
             if success:
                 scanned_repos += 1
