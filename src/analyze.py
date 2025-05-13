@@ -334,9 +334,13 @@ def get_composition_info(composition: Dict) -> Dict:
     servers = composition["mcpServers"]
     for server_name, server_info in servers.items():
         command = server_info.get("command", "")
-        # check if command ends in uv 
+        # Initialize server_type with a default value
+        server_type = "unknown"
+        # Check for different command types
         if command.endswith("uv"):
             server_type = "uv"
+        elif command == "npx":
+            server_type = "npx"
             
         args = server_info.get("args", [])
         # Return info for the first server found
