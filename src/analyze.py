@@ -236,6 +236,19 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
     # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
     # search without spaces in the file content
     mcp_composition = None
+    
+    # Ensure the repo path exists
+    if not local_repo_path.exists():
+        logging.error(f"Repository path does not exist: [{local_repo_path}]")
+        return None
+        
+    # Check if it's actually a directory
+    if not local_repo_path.is_dir():
+        logging.error(f"Repository path is not a directory: [{local_repo_path}]")
+        return None
+    
+    logging.info(f"Scanning repository at [{local_repo_path}] for MCP composition")
+    
     for root, dirs, files in os.walk(local_repo_path):
         for file in files:
             file_path = os.path.join(root, file)
@@ -250,23 +263,9 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                 logging.debug(f"Skipping non-text file [{file_path}] with MIME type [{mime_type}]")
                 continue
 
-            with open(file_path, 'r') as f:
-                try:
-                    # Try reading with UTF-8 first
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
-                except UnicodeDecodeError:
-                    try:
-                        # If UTF-8 fails, try 'latin-1', which is more permissive
-                        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.")
-                        f.seek(0) # Reset file pointer to the beginning
-                        content = f.read().decode('latin-1', errors='ignore') 
-                    except Exception as e_latin1:
-                        # If both fail, log and skip the file
-                        logging.error(f"Could not read file {file_path} with UTF-8 or latin-1: {e_latin1}")
-                        continue # Skip to the next file
-                except Exception as e:
-                    logging.error(f"Error reading file {file_path}: {e}")
-                    continue # Skip to the next file
             
                 # strip all spaces/tabs/newlines from the content
                 content = content.replace(" ", "").replace("\n", "").replace("\t", "")
@@ -317,9 +316,16 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                                 mcp_composition = json.loads(raw_str)
                             except Exception as e:
                                 logging.error(f"Failed to parse MCP composition JSON: {e}")
-                                logging.debug(f"Problematic JSON: {raw_str}")
+                                logging.debug(f"Problematic JSON: {clean_json_str}")
                                 mcp_composition = None
                         break
+            except UnicodeDecodeError as ude:
+                logging.debug(f"Skipping file with encoding issues: [{file_path}]: {ude}")
+            except IOError as ioe:
+                logging.debug(f"IO Error reading file [{file_path}]: {ioe}")
+            except Exception as e:
+                logging.debug(f"Error processing file [{file_path}]: {e}")
+                
         if mcp_composition:
             break
     
@@ -417,6 +423,11 @@ def main():
             # this code needs to move in the if success block later on
             # locate the default branch of the fork
             fork_default_branch = repo.default_branch if repo.fork else None
+
+            # create the tmp directory if it doesn't exist
+            tmp_dir = Path("tmp")
+            if not tmp_dir.exists():
+                tmp_dir.mkdir(parents=True, exist_ok=True)
 
             # clone the repo to a temp directory
             local_repo_path = Path(f"tmp/{repo.name}")

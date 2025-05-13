@@ -356,8 +356,20 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         local_repo_path: Path where the repository will be cloned.
     """
     # check if the folder already exists
-    if not local_repo_path.exists():
-        local_repo_path.mkdir(parents=True)
+    if local_repo_path.exists():
+        import shutil
+        logging.info(f"Cleaning existing directory [{local_repo_path}]")
+        shutil.rmtree(local_repo_path)
+    
+    # Create a temporary directory for extraction
+    temp_extract_path = Path(f"{local_repo_path}_temp")
+    if temp_extract_path.exists():
+        import shutil
+        shutil.rmtree(temp_extract_path)
+    temp_extract_path.mkdir(parents=True)
+    
+    # Ensure parent directory exists for the final repo path
+    local_repo_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
     tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
@@ -375,11 +387,26 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         logging.error(f"Curl stderr: {e.stderr}")
         return # Stop if download fails
 
-    # extract the tarball
-    tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
+    # extract the tarball to a temporary directory
+    tar_command = ["tar", "-xvf", tarball_file, "-C", str(temp_extract_path)]
     try:
         process = subprocess.run(tar_command, capture_output=True, text=True, check=True)
         logging.debug(f"Tar command output: {process.stdout}")
+        
+        # Find the extracted directory (usually a single directory with repo contents)
+        extracted_dirs = [d for d in temp_extract_path.iterdir() if d.is_dir()]
+        if extracted_dirs:
+            # Move the contents from the extracted directory to the target path
+            import shutil
+            src_dir = extracted_dirs[0]
+            logging.info(f"Moving repository contents from [{src_dir}] to [{local_repo_path}]")
+            shutil.move(str(src_dir), str(local_repo_path))
+            
+            # Clean up the temporary directory
+            shutil.rmtree(temp_extract_path)
+            logging.debug(f"Removed temporary directory [{temp_extract_path}]")
+        else:
+            logging.error(f"No directory found in extracted tarball for [{repo_name}]")
     except subprocess.CalledProcessError as e:
         logging.error(f"Error extracting tarball for [{repo_name}]: {e}")
         logging.error(f"Tar stderr: {e.stderr}")
