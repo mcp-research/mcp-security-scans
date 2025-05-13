@@ -163,7 +163,7 @@ class TestMcpScan(unittest.TestCase):
     def test_mcp_composition_taylor_example(self):
         """Test scanning the example directory for MCP composition using scan_repo_for_mcp_composition and get_composition_info."""
         # Path to the directory containing the example config
-        example_dir = Path("/home/runner/work/private-mcp-security-scans/private-mcp-security-scans/tests/test_mcp_scan/examples/taylor-lindores-reeves__mcp-github-projects")
+        example_dir = self.base_temp_dir.parent / "tests" / "test_mcp_scan" / "examples" / "taylor-lindores-reeves__mcp-github-projects"
         self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
         # Use scan_repo_for_mcp_composition to scan the directory
         mcp_composition = scan_repo_for_mcp_composition(example_dir)
