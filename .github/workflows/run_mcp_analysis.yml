@@ -52,10 +52,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      - name: Setup virtual environment and install dependencies
         run: |
           python -m pip install --upgrade pip
+          python -m venv venv
+          source venv/bin/activate
           if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "requirements.txt not found"; exit 1; fi
+          # Install the package in development mode
+          pip install -e .
 
       - name: Run MCP Repository Analysis Script
         env:
@@ -65,6 +69,9 @@ jobs:
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
           NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
         run: |
+          # Activate the virtual environment
+          source venv/bin/activate
+          
           TARGET_ORG_ARG=""
           # Only add the argument if the input is not empty and not the default (to let the script handle the default)
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
