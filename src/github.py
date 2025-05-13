@@ -116,8 +116,18 @@ def enable_ghas_features(gh: GitHub, owner: str, repo: str):
         logging.error(f"Unexpected error enabling GHAS features for [{owner}/{repo}]: [{e}]")
 
 
-def clone_or_update_repo(repo_url: str, local_path: Path):
-    """Clones a repository if it doesn't exist locally, or pulls updates if it does."""
+def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
+    """Clones a repository if it doesn't exist locally, or pulls updates if it does.
+    
+    Args:
+        repo_url: URL of the repository to clone or update.
+        local_path: Local path where the repository should be cloned to.
+
+    Returns:
+        bool: True if the repository was newly cloned, False if it was updated.
+    """
+    newly_cloned = False
+    
     if local_path.exists():
         logging.info(f"Repository already exists at [{local_path}]. Fetching updates...")
         try:
@@ -145,12 +155,15 @@ def clone_or_update_repo(repo_url: str, local_path: Path):
         try:
             Repo.clone_from(repo_url, local_path)
             logging.info("Repository cloned successfully.")
+            newly_cloned = True
         except GitCommandError as e:
             logging.error(f"Error cloning repository: [{e}]")
             raise
         except Exception as e:
             logging.error(f"An unexpected error occurred during repo clone: [{e}]")
             raise
+            
+    return newly_cloned
 
 def extract_repo_owner_name(github_url: str) -> tuple[str | None, str | None]:
     """Extracts owner and repo name from a GitHub URL."""
