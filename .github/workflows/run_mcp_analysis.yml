@@ -87,5 +87,4 @@ jobs:
 
           echo "Running analysis script with arguments: Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG], Verbose: [$VERBOSE_ARG]"
           # Run the script as a module rather than a direct script to handle the relative imports correctly
-          cd /home/runner/work/private-mcp-security-scans/private-mcp-security-scans/
           python -m src.analyze $TARGET_ORG_ARG $NUM_REPOS_ARG $VERBOSE_ARG
