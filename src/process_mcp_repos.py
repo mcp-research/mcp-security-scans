@@ -377,7 +377,8 @@ def main():
         initial_repo_count = len(existing_repos) # Store initial count
 
         # Clone or Update MCP Agents Hub repo
-        clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+        newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+        repos_cloned_count = 1 if newly_cloned else 0  # Track if MCP Agents Hub was newly cloned
 
         # Find JSON files in the MCP Agents Hub repo
         json_dir = LOCAL_REPO_PATH / JSON_FILES_DIR_IN_REPO
@@ -439,8 +440,10 @@ def main():
         summary_lines = [
             f"**MCP Repository Processing Summary**",
             "Security Scan Results",
+            f"- Total MCP server configs found: `{len(all_json_files)}`",
+            f"- Total MCP servers found: `{len(processed_repos)}`",
+            f"- Repos cloned: `{repos_cloned_count}`",
             f"- Processing Limit (--num-repos): `{num_to_process}`",
-            f"- Total JSON files found: `{len(all_json_files)}`",
             f"- Unique source repositories encountered: `{len(processed_repos)}`",
             f"- New repositories successfully processed (forked/found & GHAS enabled): `{processed_repo_count}`",
             f"- Repositories skipped (exist but not correct fork): `{skipped_non_fork_count}`",

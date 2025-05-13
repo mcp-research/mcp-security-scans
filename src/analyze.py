@@ -439,6 +439,8 @@ def main():
             "**GHAS Alert Scanning Summary**",
             "Security Scan Results",
             f"- Organization: `{args.target_org}`",
+            f"- Total MCP server configs: `{total_repos}`",
+            f"- Total MCP servers found: `{total_repos}`",
             f"- Scan limit (--num-repos): `{args.num_repos}`",
             f"- Total repositories in organization: `{total_repos}`",
             f"- Repositories processed: `{scanned_repos + skipped_repos}`",
