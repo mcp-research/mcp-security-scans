@@ -8,6 +8,7 @@ from githubkit.exception import RequestError, RequestFailed, RequestTimeout
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
+import time
 
 # Import the local functions
 from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
@@ -172,6 +173,43 @@ def reprocess_repository(properties: dict) -> bool:
     # Reprocess if none of the above conditions are met
     return True	
 
+def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
+    """
+    Updates the forked repository with changes from the upstream source.
+
+    Args:
+        gh: Authenticated GitHub client instance.
+        target_org: The target GitHub organization where the fork is located.
+        target_repo_name: The name of the forked repository in the target organization.
+    """
+    try:
+        # first we need to locate the default branch of the fork
+        fork_info = gh.rest.repos.get(
+            owner=target_org,
+            repo=target_repo_name
+        )
+
+        fork_default_branch = None
+        if not fork_info.default_branch:
+            logging.warning(f"Could not find default branch for [{target_org}/{target_repo_name}]. Skipping update.")
+            return
+        else:
+            fork_default_branch = fork_info.default_branch
+
+        if fork_default_branch:
+            logging.info(f"Updating forked repository: [{target_org}/{target_repo_name}]")
+            gh.rest.repos.update_branch(
+                owner=target_org,
+                repo=target_repo_name,
+                branch=fork_default_branch, # update the default branch
+                expected_head=fork_default_branch # ensure the branch is at the default head
+            )
+            logging.info(f"Successfully updated forked repository: [{target_org}/{target_repo_name}]")
+    except RequestFailed as e:
+        handle_github_api_error(e, f"updating forked repository [{target_org}/{target_repo_name}]")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred updating forked repository [{target_org}/{target_repo_name}]: [{e}]")
+
 def process_repository_from_json(
     existing_repos: list[FullRepository],
     json_file_path: Path,
@@ -270,6 +308,13 @@ def process_repository_from_json(
         # If fork exists and needs processing (or properties check passed)
         logging.info(f"Processing source repository: [{source_repo_full_name}] (Target: [{target_org}/{target_repo_name}])")
 
+        # Update the fork with upstream changes
+        update_forked_repo(gh, target_org, target_repo_name)
+
+        # Wait 3 seconds to allow the fork to update with latest alerts
+        logging.info("Waiting for fork to update with latest changes...")
+        time.sleep(3)
+
         enable_ghas_features(gh, target_org, target_repo_name)
         dependabot_configured = check_dependabot_config(gh, target_org, target_repo_name)
         if dependabot_configured:
@@ -332,7 +377,8 @@ def main():
         initial_repo_count = len(existing_repos) # Store initial count
 
         # Clone or Update MCP Agents Hub repo
-        clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+        newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+        repos_cloned_count = 1 if newly_cloned else 0  # Track if MCP Agents Hub was newly cloned
 
         # Find JSON files in the MCP Agents Hub repo
         json_dir = LOCAL_REPO_PATH / JSON_FILES_DIR_IN_REPO
@@ -394,8 +440,10 @@ def main():
         summary_lines = [
             f"**MCP Repository Processing Summary**",
             "Security Scan Results",
+            f"- Total MCP server configs found: `{len(all_json_files)}`",
+            f"- Total MCP servers found: `{len(processed_repos)}`",
+            f"- Repos cloned: `{repos_cloned_count}`",
             f"- Processing Limit (--num-repos): `{num_to_process}`",
-            f"- Total JSON files found: `{len(all_json_files)}`",
             f"- Unique source repositories encountered: `{len(processed_repos)}`",
             f"- New repositories successfully processed (forked/found & GHAS enabled): `{processed_repo_count}`",
             f"- Repositories skipped (exist but not correct fork): `{skipped_non_fork_count}`",
