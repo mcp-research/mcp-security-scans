@@ -335,9 +335,13 @@ def get_composition_info(composition: Dict) -> Dict:
     servers = composition["mcpServers"]
     for server_name, server_info in servers.items():
         command = server_info.get("command", "")
-        # check if command ends in uv 
+        # Initialize server_type with a default value
+        server_type = "unknown"
+        # Check for different command types
         if command.endswith("uv"):
             server_type = "uv"
+        elif command == "npx":
+            server_type = "npx"
             
         args = server_info.get("args", [])
         # Return info for the first server found
@@ -419,7 +423,13 @@ def main():
             composition = scan_repo_for_mcp_composition(local_repo_path)
             if composition:
                 logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
-                runtime = get_composition_info(composition)
+                try:
+                    runtime = get_composition_info(composition)
+                    if runtime:
+                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                except Exception as e:
+                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                    runtime = {}
             
             if success:
                 scanned_repos += 1

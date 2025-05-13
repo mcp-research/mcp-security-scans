@@ -160,6 +160,31 @@ class TestMcpScan(unittest.TestCase):
             self.fail("get_composition_info returned None, expected a result containing 'npx'.")
 
 
+    def test_mcp_composition_taylor_example(self):
+        """Test scanning the example directory for MCP composition using scan_repo_for_mcp_composition and get_composition_info."""
+        # Path to the directory containing the example config
+        example_dir = self.base_temp_dir.parent / "tests" / "test_mcp_scan" / "examples" / "taylor-lindores-reeves__mcp-github-projects"
+        self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
+        # Use scan_repo_for_mcp_composition to scan the directory
+        mcp_composition = scan_repo_for_mcp_composition(example_dir)
+        self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition returned None for the example directory.")
+        self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in scanned composition.")
+        logging.info(f"Loaded and validated taylor example using scan_repo_for_mcp_composition: [{mcp_composition}]")
+
+        # Test: call get_composition_info and verify it works with multiple servers
+        info = get_composition_info(mcp_composition)
+        if info is not None:
+            # If info is a dict or str, check if 'npx' is present in any value
+            if isinstance(info, dict):
+                found_npx = any('npx' in str(v) for v in info.values())
+            else:
+                found_npx = 'npx' in str(info)
+            self.assertTrue(found_npx, f"get_composition_info did not return or contain 'npx': [{info}]")
+            # Also verify server_type is present in the result
+            self.assertIn("server_type", info, "'server_type' key missing in composition info")
+        else:
+            self.fail("get_composition_info returned None, expected a result containing 'npx'.")
+
     @classmethod
     def tearDownClass(cls):
         # Clean up the base temporary directory
