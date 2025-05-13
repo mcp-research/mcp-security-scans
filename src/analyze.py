@@ -243,44 +243,44 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
             # Guess the MIME type of the file
             mime_type, _ = mimetypes.guess_type(file_path)
 
-            # Only process if it's likely a text file
+            # Only process text files and files with JSON MIME type
             # Also, explicitly allow files with no discernible MIME type (e.g. files without extensions, like 'LICENSE')
             # as they are often text-based. The subsequent read attempt will handle actual binary content.
-            if mime_type is not None and not mime_type.startswith('text/'):
+            if mime_type is not None and not (mime_type.startswith('text/') or mime_type == 'application/json'):
                 logging.debug(f"Skipping non-text file [{file_path}] with MIME type [{mime_type}]")
                 continue
 
-            with open(file_path, 'r') as f:
-                try:
-                    # Try reading with UTF-8 first
+            try:
+                # Try reading with UTF-8 first
+                with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
-                except UnicodeDecodeError:
-                    try:
-                        # If UTF-8 fails, try 'latin-1', which is more permissive
-                        logging.warning(f"UTF-8 decoding failed for {file_path}. Trying 'latin-1'.")
-                        f.seek(0) # Reset file pointer to the beginning
-                        content = f.read().decode('latin-1', errors='ignore') 
-                    except Exception as e_latin1:
-                        # If both fail, log and skip the file
-                        logging.error(f"Could not read file {file_path} with UTF-8 or latin-1: {e_latin1}")
-                        continue # Skip to the next file
-                except Exception as e:
-                    logging.error(f"Error reading file {file_path}: {e}")
+            except UnicodeDecodeError:
+                try:
+                    # If UTF-8 fails, try 'latin-1', which is more permissive
+                    logging.warning(f"UTF-8 decoding failed for [{file_path}]. Trying 'latin-1'.")
+                    with open(file_path, 'r', encoding='latin-1') as f:
+                        content = f.read()
+                except Exception as e_latin1:
+                    # If both fail, log and skip the file
+                    logging.error(f"Could not read file [{file_path}] with UTF-8 or latin-1: {e_latin1}")
                     continue # Skip to the next file
+            except Exception as e:
+                logging.error(f"Error reading file [{file_path}]: {e}")
+                continue # Skip to the next file
             
-                # strip all spaces/tabs/newlines from the content
-                content = content.replace(" ", "").replace("\n", "").replace("\t", "")
-                if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
-                    # grab the json string that contains the mcpServers information
-                    # search for the first '{' and the last '}' from where we found the search string
-                    start = content.find('"mcpServers":{')
-                    if start == -1:
-                        start = content.find('"mcp":{"servers":{')
-                    if start != -1:
-                        # check if there was an opening bracket before the search string
-                        if content[start-1] == '{':
-                            # if there was an opening bracket, find the start of the json string
-                            start -= 1
+            # strip all spaces/tabs/newlines from the content
+            content = content.replace(" ", "").replace("\n", "").replace("\t", "")
+            if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
+                # grab the json string that contains the mcpServers information
+                # search for the first '{' and the last '}' from where we found the search string
+                start = content.find('"mcpServers":{')
+                if start == -1:
+                    start = content.find('"mcp":{"servers":{')
+                if start != -1:
+                    # check if there was an opening bracket before the search string
+                    if content[start-1] == '{':
+                        # if there was an opening bracket, find the start of the json string
+                        start -= 1
 
                         # find the end of the json string by counting all the next opening { and finding as much } chars
                         end = start
