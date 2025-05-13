@@ -4,6 +4,7 @@ import os
 import argparse
 import logging
 import datetime
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import json
@@ -367,11 +368,11 @@ def main():
     
     if not app_id:
         logging.error("GH_APP_ID environment variable not set.")
-        return
+        sys.exit(1)
     
     if not private_key:
         logging.error("GH_APP_PRIVATE_KEY environment variable not set.")
-        return
+        sys.exit(1)
     
     try:
         # --- Authentication ---
@@ -474,6 +475,7 @@ def main():
         
     except Exception as e:
         logging.error(f"Script failed with an error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
