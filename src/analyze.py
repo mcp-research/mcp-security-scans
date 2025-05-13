@@ -396,6 +396,9 @@ def main():
         total_code_alerts = 0
         total_secret_alerts = 0
         total_dependency_alerts = 0
+        
+        # Track repositories where get_composition_info fails
+        failed_analysis_repos = []
 
         logging.info(f"Found [{total_repos}] repositories in organization [{args.target_org}]")
 
@@ -427,8 +430,13 @@ def main():
                     runtime = get_composition_info(composition)
                     if runtime:
                         logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                    else:
+                        # Track failed analysis where get_composition_info returns empty dict
+                        logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
+                        failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
                 except Exception as e:
                     logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                    failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
                     runtime = {}
             
             if success:
@@ -461,13 +469,29 @@ def main():
             f"- Total secret scanning alerts found: `{total_secret_alerts}`",
             f"- Total dependency vulnerability alerts found: `{total_dependency_alerts}`",
             f"- Total GHAS alerts across all scanned repos: `{total_code_alerts + total_secret_alerts + total_dependency_alerts}`",
-            f"- Total execution time: `{duration}`"
+            f"- Total execution time: `{duration}`",
+            f"- Failed analysis repositories: `{len(failed_analysis_repos)}`"
         ]
+        
+        # Add a table with failed analysis repositories if any
+        if failed_analysis_repos:
+            summary_lines.append("**Failed Analysis Repositories**")
+            summary_lines.append("| Repository | Reason |")
+            summary_lines.append("| ---------- | ------ |")
+            for repo in failed_analysis_repos:
+                summary_lines.append(f"| {repo['name']} | {repo['reason']} |")
+            summary_lines.append("\n")
         
         # Log summary to console
         logging.info("Scanning Summary")
         for line in summary_lines[1:]:  # Skip the markdown title for console
             logging.info(line.replace('`', '').replace('*', ''))  # Clean markdown for console
+        
+        # Log failed analysis repositories in a more readable format in console
+        if failed_analysis_repos:
+            logging.info("Failed Analysis Repositories:")
+            for repo in failed_analysis_repos:
+                logging.info(f"- {repo['name']}: {repo['reason']}")
         
         show_rate_limit(gh)
         
