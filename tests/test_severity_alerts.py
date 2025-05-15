@@ -28,9 +28,6 @@ class TestSeverityAlerts(unittest.TestCase):
             MagicMock(rule=MagicMock(severity="high")),
             MagicMock(rule=MagicMock(severity="medium")),
             MagicMock(rule=MagicMock(severity="low")),
-            MagicMock(rule=MagicMock(severity="warning")),
-            MagicMock(rule=MagicMock(severity="note")),
-            MagicMock(rule=MagicMock(severity="error")),
         ]
         
         # Set up the mock to return our list
@@ -40,14 +37,11 @@ class TestSeverityAlerts(unittest.TestCase):
         result = get_code_scanning_alerts(mock_gh, "owner", "repo")
         
         # Verify the results
-        self.assertEqual(result["total"], 8)
+        self.assertEqual(result["total"], 5)
         self.assertEqual(result["critical"], 2)
         self.assertEqual(result["high"], 1)
         self.assertEqual(result["medium"], 1)
         self.assertEqual(result["low"], 1)
-        self.assertEqual(result["warning"], 1)
-        self.assertEqual(result["note"], 1)
-        self.assertEqual(result["error"], 1)
         
     def test_dependency_alerts_severity(self):
         """Test that dependency alerts are categorized by severity."""

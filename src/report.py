@@ -32,9 +32,6 @@ CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
 CODE_ALERTS_HIGH = "CodeAlerts_High"
 CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
 CODE_ALERTS_LOW = "CodeAlerts_Low"
-CODE_ALERTS_WARNING = "CodeAlerts_Warning"
-CODE_ALERTS_NOTE = "CodeAlerts_Note"
-CODE_ALERTS_ERROR = "CodeAlerts_Error"
 
 # Property names for secret scanning alerts (no standard severity levels)
 SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
@@ -126,10 +123,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'critical': 0,
         'high': 0,
         'medium': 0,
-        'low': 0,
-        'warning': 0,
-        'note': 0,
-        'error': 0
+        'low': 0
     }
     
     dependency_alerts_by_severity = {
@@ -184,9 +178,6 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             code_high = safe_int_convert(properties.get(CODE_ALERTS_HIGH, 0))
             code_medium = safe_int_convert(properties.get(CODE_ALERTS_MEDIUM, 0))
             code_low = safe_int_convert(properties.get(CODE_ALERTS_LOW, 0))
-            code_warning = safe_int_convert(properties.get(CODE_ALERTS_WARNING, 0))
-            code_note = safe_int_convert(properties.get(CODE_ALERTS_NOTE, 0))
-            code_error = safe_int_convert(properties.get(CODE_ALERTS_ERROR, 0))
             
             # Get dependency alert counts by severity
             dep_critical = safe_int_convert(properties.get(DEPENDENCY_ALERTS_CRITICAL, 0))
@@ -204,9 +195,6 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             code_alerts_by_severity['high'] += code_high
             code_alerts_by_severity['medium'] += code_medium
             code_alerts_by_severity['low'] += code_low
-            code_alerts_by_severity['warning'] += code_warning
-            code_alerts_by_severity['note'] += code_note
-            code_alerts_by_severity['error'] += code_error
             
             dependency_alerts_by_severity['critical'] += dep_critical
             dependency_alerts_by_severity['high'] += dep_high
@@ -323,10 +311,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         f.write(f"- Critical: {stats['code_alerts_by_severity']['critical']}\n")
         f.write(f"- High: {stats['code_alerts_by_severity']['high']}\n")
         f.write(f"- Medium: {stats['code_alerts_by_severity']['medium']}\n")
-        f.write(f"- Low: {stats['code_alerts_by_severity']['low']}\n")
-        f.write(f"- Warning: {stats['code_alerts_by_severity']['warning']}\n")
-        f.write(f"- Note: {stats['code_alerts_by_severity']['note']}\n")
-        f.write(f"- Error: {stats['code_alerts_by_severity']['error']}\n\n")
+        f.write(f"- Low: {stats['code_alerts_by_severity']['low']}\n\n")
         
         f.write("## Dependency Alerts by Severity\n\n")
         f.write(f"- Critical: {stats['dependency_alerts_by_severity']['critical']}\n")

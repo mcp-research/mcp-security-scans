@@ -41,9 +41,6 @@ CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
 CODE_ALERTS_HIGH = "CodeAlerts_High"
 CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
 CODE_ALERTS_LOW = "CodeAlerts_Low"
-CODE_ALERTS_WARNING = "CodeAlerts_Warning"
-CODE_ALERTS_NOTE = "CodeAlerts_Note"
-CODE_ALERTS_ERROR = "CodeAlerts_Error"
 
 # Property names for secret scanning alerts (no standard severity levels)
 SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
@@ -75,9 +72,6 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
         "high": 0,
         "medium": 0,
         "low": 0,
-        "warning": 0,
-        "note": 0,
-        "error": 0,
     }
     
     try:
@@ -104,12 +98,6 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["medium"] += 1
             elif severity == "low":
                 result["low"] += 1
-            elif severity == "warning":
-                result["warning"] += 1
-            elif severity == "note":
-                result["note"] += 1
-            elif severity == "error":
-                result["error"] += 1
             
         logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
@@ -257,9 +245,6 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         "high": 0,
         "medium": 0,
         "low": 0,
-        "warning": 0,
-        "note": 0,
-        "error": 0,
     }
     
     secret_alerts = {"total": 0}
@@ -327,9 +312,6 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             CODE_ALERTS_HIGH: code_alerts["high"],
             CODE_ALERTS_MEDIUM: code_alerts["medium"],
             CODE_ALERTS_LOW: code_alerts["low"],
-            CODE_ALERTS_WARNING: code_alerts["warning"],
-            CODE_ALERTS_NOTE: code_alerts["note"],
-            CODE_ALERTS_ERROR: code_alerts["error"],
             
             # Secret scanning alerts (only total for now)
             SECRET_ALERTS_TOTAL: secret_alerts["total"],
@@ -526,9 +508,6 @@ def main():
             "high": 0,
             "medium": 0,
             "low": 0,
-            "warning": 0,
-            "note": 0,
-            "error": 0,
         }
         
         total_dependency_alerts_by_severity = {
@@ -623,9 +602,6 @@ def main():
             f"- High: `{total_code_alerts_by_severity['high']}`",
             f"- Medium: `{total_code_alerts_by_severity['medium']}`",
             f"- Low: `{total_code_alerts_by_severity['low']}`",
-            f"- Warning: `{total_code_alerts_by_severity['warning']}`",
-            f"- Note: `{total_code_alerts_by_severity['note']}`",
-            f"- Error: `{total_code_alerts_by_severity['error']}`",
             "",
             "**Dependency Scanning Alerts by Severity**",
             f"- Critical: `{total_dependency_alerts_by_severity['critical']}`",
