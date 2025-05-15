@@ -44,6 +44,9 @@ create_property() {
         json_data="$json_data,\"default\":$default_value"
     fi
     
+    # Make properties settable by repository actors
+    json_data="$json_data,\"allowed_values_setter\":\"REPOSITORY\""
+    
     # Close JSON object
     json_data="$json_data}"
     
