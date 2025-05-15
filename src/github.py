@@ -9,6 +9,8 @@ from githubkit.versions.latest.models import FullRepository
 from typing import Any
 import os
 import subprocess
+import magic
+import time
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -344,6 +346,29 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
         logging.error(f"An unexpected error occurred while fetching custom repository properties for [{target_org}/{target_repo_name}]: [{e}]")
         raise
 
+def is_valid_tarball(file_path: str) -> bool:
+    """
+    Verify if the file is a valid gzipped tarball using magic module.
+    
+    Args:
+        file_path: Path to the downloaded file
+        
+    Returns:
+        Boolean indicating if the file is a valid gzipped tarball
+    """
+    try:
+        # Check the file type using libmagic
+        file_type = magic.from_file(file_path)
+        logging.debug(f"File type for [{file_path}]: {file_type}")
+        
+        # Check if it's a gzip compressed file or tarball
+        return ('gzip' in file_type.lower() or 
+                'tar archive' in file_type.lower() or 
+                'compressed data' in file_type.lower())
+    except Exception as e:
+        logging.error(f"Error checking file type for [{file_path}]: {e}")
+        return False
+
 def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_repo_path: Path) -> None:
     """
     Clones a repository to a local path using the GitHub API tarball download.
@@ -360,36 +385,77 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         local_repo_path.mkdir(parents=True)
 
     logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
-    tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
-    tarball_url = str(tarball_json.url)
     
-    # download the tarball
-    logging.info(f"Downloading tarball from [{tarball_url}]")
-    tarball_file = f"{local_repo_path}.tar.gz"
-    curl_command = ["curl", "-L", tarball_url, "-o", tarball_file]
-    try:
-        process = subprocess.run(curl_command, capture_output=True, text=True, check=True)
-        logging.debug(f"Curl command output: {process.stdout}")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error downloading tarball for [{repo_name}]: {e}")
-        logging.error(f"Curl stderr: {e.stderr}")
-        return # Stop if download fails
-
-    # extract the tarball
-    tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
-    try:
-        process = subprocess.run(tar_command, capture_output=True, text=True, check=True)
-        logging.debug(f"Tar command output: {process.stdout}")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error extracting tarball for [{repo_name}]: {e}")
-        logging.error(f"Tar stderr: {e.stderr}")
-    finally:
-        # Clean up the tarball
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(1, max_retries + 1):
         try:
-            os.remove(tarball_file)
-            logging.debug(f"Removed tarball file [{tarball_file}]")
-        except OSError as e:
-            logging.error(f"Error removing tarball file [{tarball_file}]: {e}")
+            # Get tarball URL from GitHub
+            tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
+            tarball_url = str(tarball_json.url)
+            
+            # download the tarball
+            logging.info(f"Downloading tarball from [{tarball_url}] (Attempt {attempt}/{max_retries})")
+            tarball_file = f"{local_repo_path}.tar.gz"
+            curl_command = ["curl", "-L", tarball_url, "-o", tarball_file]
+            
+            process = subprocess.run(curl_command, capture_output=True, text=True, check=True)
+            logging.debug(f"Curl command output: {process.stdout}")
+            
+            # Verify that the downloaded file is a valid tarball
+            if not is_valid_tarball(tarball_file):
+                logging.warning(f"Downloaded file for [{repo_name}] is not a valid gzipped tarball (Attempt {attempt}/{max_retries})")
+                if attempt < max_retries:
+                    logging.info(f"Retrying download in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    logging.error(f"Failed to download valid tarball for [{repo_name}] after {max_retries} attempts")
+                    return
+            
+            # extract the tarball
+            logging.info(f"Extracting tarball for [{repo_name}]")
+            tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
+            try:
+                process = subprocess.run(tar_command, capture_output=True, text=True, check=True)
+                logging.debug(f"Tar command output: {process.stdout}")
+                # If we got here, extraction succeeded, so break out of the retry loop
+                break
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Error extracting tarball for [{repo_name}]: {e}")
+                logging.error(f"Tar stderr: {e.stderr}")
+                if attempt < max_retries:
+                    logging.info(f"Retrying download in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    logging.error(f"Failed to extract tarball for [{repo_name}] after {max_retries} attempts")
+        
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error downloading tarball for [{repo_name}]: {e}")
+            logging.error(f"Curl stderr: {e.stderr}")
+            if attempt < max_retries:
+                logging.info(f"Retrying download in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                logging.error(f"Failed to download tarball for [{repo_name}] after {max_retries} attempts")
+                return
+        except Exception as e:
+            logging.error(f"Unexpected error processing tarball for [{repo_name}]: {e}")
+            if attempt < max_retries:
+                logging.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                logging.error(f"Failed to process repository [{repo_name}] after {max_retries} attempts")
+                return
+        finally:
+            # Clean up the tarball if it exists
+            if os.path.exists(tarball_file):
+                try:
+                    os.remove(tarball_file)
+                    logging.debug(f"Removed tarball file [{tarball_file}]")
+                except OSError as e:
+                    logging.error(f"Error removing tarball file [{tarball_file}]: {e}")
 
 def show_rate_limit(gh: GitHub):
     """Displays the current rate limit status for the authenticated GitHub client."""
