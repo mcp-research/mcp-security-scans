@@ -30,14 +30,35 @@ load_dotenv()  # Load environment variables from .env file
 # Constants
 TARGET_ORG = "mcp-research"  # The organization to scan
 GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
+
+# Property names for total alert counts
 CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
 SECRET_ALERTS = "SecretAlerts"  # Property name for secret scanning alerts
 DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
+
+# Property names for code scanning alerts by severity
+CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
+CODE_ALERTS_HIGH = "CodeAlerts_High"
+CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
+CODE_ALERTS_LOW = "CodeAlerts_Low"
+CODE_ALERTS_WARNING = "CodeAlerts_Warning"
+CODE_ALERTS_NOTE = "CodeAlerts_Note"
+CODE_ALERTS_ERROR = "CodeAlerts_Error"
+
+# Property names for secret scanning alerts (no standard severity levels)
+SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
+
+# Property names for dependency alerts by severity
+DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
+DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
+
 SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
 
-def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
+def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
-    Gets the count of code scanning alerts for a repository.
+    Gets the count of code scanning alerts for a repository, categorized by severity.
     
     Args:
         gh: Authenticated GitHub client instance.
@@ -45,34 +66,69 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
         repo: Repository name.
         
     Returns:
-        Number of open code scanning alerts.
+        Dictionary with counts of open code scanning alerts by severity.
     """
+    # Initialize result dictionary with all severity counts set to 0
+    result = {
+        "total": 0,
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "warning": 0,
+        "note": 0,
+        "error": 0,
+    }
+    
     try:
         # Get code scanning alerts with state=open
-        alerts = gh.rest.paginate(
+        alerts = list(gh.rest.paginate(
             gh.rest.code_scanning.list_alerts_for_repo,
             owner=owner,
             repo=repo,
             state='open'
-        )
+        ))
         
-        # Count the alerts
-        alert_count = sum(1 for _ in alerts)
-        logging.info(f"Found [{alert_count}] open code scanning alerts for [{owner}/{repo}]")
-        return alert_count
+        result["total"] = len(alerts)
+        
+        # Count alerts by severity
+        for alert in alerts:
+            # Convert severity to lowercase for case-insensitive comparison
+            severity = alert.rule.severity.lower() if alert.rule and alert.rule.severity else "unknown"
+            
+            if severity == "critical":
+                result["critical"] += 1
+            elif severity == "high":
+                result["high"] += 1
+            elif severity == "medium":
+                result["medium"] += 1
+            elif severity == "low":
+                result["low"] += 1
+            elif severity == "warning":
+                result["warning"] += 1
+            elif severity == "note":
+                result["note"] += 1
+            elif severity == "error":
+                result["error"] += 1
+            
+        logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
+                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                    f"Medium: {result['medium']}, Low: {result['low']}")
+        
+        return result
         
     except RequestFailed as e:
         if e.response.status_code == 404:
             logging.info(f"Code scanning not enabled or no alerts found for [{owner}/{repo}]")
-            return 0
+            return result
         else:
             handle_github_api_error(e, f"getting code scanning alerts for [{owner}/{repo}]")
-            return 0
+            return result
     except Exception as e:
         logging.error(f"Unexpected error getting code scanning alerts for [{owner}/{repo}]: {e}")
-        return 0
+        return result
 
-def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
+def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
     Gets the count of secret scanning alerts for a repository.
     
@@ -82,36 +138,39 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> int:
         repo: Repository name.
         
     Returns:
-        Number of open secret scanning alerts.
+        Dictionary with count of open secret scanning alerts.
     """
+    # Initialize result dictionary
+    result = {"total": 0}
+    
     try:
         # Get secret scanning alerts with state=open
-        alerts = gh.rest.paginate(
+        alerts = list(gh.rest.paginate(
             gh.rest.secret_scanning.list_alerts_for_repo,
             owner=owner,
             repo=repo,
             state='open'
-        )
+        ))
         
-        # Count the alerts
-        alert_count = sum(1 for _ in alerts)
-        logging.info(f"Found [{alert_count}] open secret scanning alerts for [{owner}/{repo}]")
-        return alert_count
+        result["total"] = len(alerts)
+        
+        logging.info(f"Found [{result['total']}] open secret scanning alerts for [{owner}/{repo}]")
+        return result
         
     except RequestFailed as e:
         if e.response.status_code == 404:
             logging.info(f"Secret scanning not enabled or no alerts found for [{owner}/{repo}]")
-            return 0
+            return result
         else:
             handle_github_api_error(e, f"getting secret scanning alerts for [{owner}/{repo}]")
-            return 0
+            return result
     except Exception as e:
         logging.error(f"Unexpected error getting secret scanning alerts for [{owner}/{repo}]: {e}")
-        return 0
+        return result
 
-def get_dependency_alerts(gh: Any, owner: str, repo: str) -> int:
+def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
-    Gets the count of dependency vulnerability alerts for a repository.
+    Gets the count of dependency vulnerability alerts for a repository, categorized by severity.
     
     Args:
         gh: Authenticated GitHub client instance.
@@ -119,34 +178,60 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> int:
         repo: Repository name.
         
     Returns:
-        Number of open dependency vulnerability alerts.
+        Dictionary with counts of open dependency vulnerability alerts by severity.
     """
+    # Initialize result dictionary with all severity counts set to 0
+    result = {
+        "total": 0,
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+    }
+    
     try:
         # Get dependency vulnerability alerts
-        alerts = gh.rest.paginate(
+        alerts = list(gh.rest.paginate(
             gh.rest.dependabot.list_alerts_for_repo,
             owner=owner,
             repo=repo,
             state='open'
-        )
+        ))
         
-        # Count the alerts
-        alert_count = sum(1 for _ in alerts)
-        logging.info(f"Found [{alert_count}] open dependency alerts for [{owner}/{repo}]")
-        return alert_count
+        result["total"] = len(alerts)
+        
+        # Count alerts by severity
+        for alert in alerts:
+            # Get the severity from the vulnerability, normalized to lowercase
+            severity = alert.security_vulnerability.severity.lower() if alert.security_vulnerability and alert.security_vulnerability.severity else "unknown"
+            
+            if severity == "critical":
+                result["critical"] += 1
+            elif severity == "high":
+                result["high"] += 1
+            elif severity == "moderate" or severity == "medium":
+                result["moderate"] += 1
+            elif severity == "low":
+                result["low"] += 1
+            
+        logging.info(f"Found [{result['total']}] open dependency alerts for [{owner}/{repo}], " +
+                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                    f"Moderate: {result['moderate']}, Low: {result['low']}")
+        
+        return result
         
     except RequestFailed as e:
         if e.response.status_code == 404:
             logging.info(f"Dependency scanning not enabled or no alerts found for [{owner}/{repo}]")
-            return 0
+            return result
         else:
             handle_github_api_error(e, f"getting dependency alerts for [{owner}/{repo}]")
-            return 0
+            return result
     except Exception as e:
         logging.error(f"Unexpected error getting dependency alerts for [{owner}/{repo}]: {e}")
-        return 0
+        return result
 
-def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, int, int, int]:
+def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, Dict[str, int], Dict[str, int], Dict[str, int]]:
     """
     Scans a single repository for GHAS alerts and updates its properties.
     
@@ -158,23 +243,40 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
     Returns:
         A tuple (success, code_alerts, secret_alerts, dependency_alerts):
         - success: True if scanning and updating were successful, False otherwise
-        - code_alerts: Number of code scanning alerts found
-        - secret_alerts: Number of secret scanning alerts found
-        - dependency_alerts: Number of dependency vulnerability alerts found
+        - code_alerts: Dictionary with code scanning alerts by severity
+        - secret_alerts: Dictionary with secret scanning alerts count
+        - dependency_alerts: Dictionary with dependency vulnerability alerts by severity
     """
     owner = repo.owner.login if repo.owner else TARGET_ORG
     repo_name = repo.name
     
-    # Initialize alert counts to 0
-    code_alerts = 0
-    secret_alerts = 0
-    dependency_alerts = 0
+    # Initialize alert counts with empty dictionaries
+    code_alerts = {
+        "total": 0,
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "warning": 0,
+        "note": 0,
+        "error": 0,
+    }
+    
+    secret_alerts = {"total": 0}
+    
+    dependency_alerts = {
+        "total": 0,
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+    }
     
     try:
         # Check if this is a fork - we only want to scan forks
         if not repo.fork:
             logging.info(f"Repository {owner}/{repo_name} is not a fork. Skipping.")
-            return False, 0, 0, 0
+            return False, code_alerts, secret_alerts, dependency_alerts
             
         # Get existing properties - fixed to handle the custom properties structure correctly
         properties = {}
@@ -204,20 +306,41 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         
         # Check if we should scan this repository based on timestamp
         if not should_scan_repository(properties, GHAS_STATUS_UPDATED, SCAN_FREQUENCY_DAYS):
-            return False, 0, 0, 0
+            return False, code_alerts, secret_alerts, dependency_alerts
             
         logging.info(f"Scanning repository {owner}/{repo_name} for GHAS alerts...")
         
-        # Get alert counts
+        # Get alert counts with severity breakdowns
         code_alerts = get_code_scanning_alerts(gh, owner, repo_name)
         secret_alerts = get_secret_scanning_alerts(gh, owner, repo_name)
         dependency_alerts = get_dependency_alerts(gh, owner, repo_name)
         
         # Update repository properties with counts and timestamp
         properties_to_update = {
-            CODE_ALERTS: code_alerts,
-            SECRET_ALERTS: secret_alerts,
-            DEPENDENCY_ALERTS: dependency_alerts,
+            # Total counts for backward compatibility
+            CODE_ALERTS: code_alerts["total"],
+            SECRET_ALERTS: secret_alerts["total"],
+            DEPENDENCY_ALERTS: dependency_alerts["total"],
+            
+            # Code scanning alerts by severity
+            CODE_ALERTS_CRITICAL: code_alerts["critical"],
+            CODE_ALERTS_HIGH: code_alerts["high"],
+            CODE_ALERTS_MEDIUM: code_alerts["medium"],
+            CODE_ALERTS_LOW: code_alerts["low"],
+            CODE_ALERTS_WARNING: code_alerts["warning"],
+            CODE_ALERTS_NOTE: code_alerts["note"],
+            CODE_ALERTS_ERROR: code_alerts["error"],
+            
+            # Secret scanning alerts (only total for now)
+            SECRET_ALERTS_TOTAL: secret_alerts["total"],
+            
+            # Dependency scanning alerts by severity
+            DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
+            DEPENDENCY_ALERTS_HIGH: dependency_alerts["high"],
+            DEPENDENCY_ALERTS_MODERATE: dependency_alerts["moderate"],
+            DEPENDENCY_ALERTS_LOW: dependency_alerts["low"],
+            
+            # Update timestamp
             GHAS_STATUS_UPDATED: datetime.datetime.now().isoformat()
         }
         
@@ -228,7 +351,7 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         
     except Exception as e:
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
-        return False, 0, 0, 0
+        return False, code_alerts, secret_alerts, dependency_alerts
 
 def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
     # scan the repo to find a txt file that defines "mcpServers": {
@@ -392,10 +515,28 @@ def main():
         scanned_repos = 0
         skipped_repos = 0
         
-        # Initialize alert counters
+        # Initialize alert counters for total counts
         total_code_alerts = 0
         total_secret_alerts = 0
         total_dependency_alerts = 0
+        
+        # Initialize alert counters for severity breakdowns
+        total_code_alerts_by_severity = {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "warning": 0,
+            "note": 0,
+            "error": 0,
+        }
+        
+        total_dependency_alerts_by_severity = {
+            "critical": 0,
+            "high": 0,
+            "moderate": 0,
+            "low": 0,
+        }
         
         # Track repositories where get_composition_info fails
         failed_analysis_repos = []
@@ -411,7 +552,7 @@ def main():
             logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
-            success, code_alerts, secret_alerts, dep_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
+            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
 
             # temporarily scan all repos for mcp configs, as we did not do so before
             # this code needs to move in the if success block later on
@@ -442,9 +583,16 @@ def main():
             if success:
                 scanned_repos += 1
                 # Add alerts to totals if scan was successful
-                total_code_alerts += code_alerts
-                total_secret_alerts += secret_alerts
-                total_dependency_alerts += dep_alerts
+                total_code_alerts += code_alerts["total"]
+                total_secret_alerts += secret_alerts["total"]
+                total_dependency_alerts += dependency_alerts["total"]
+                
+                # Add alerts by severity
+                for severity in total_code_alerts_by_severity:
+                    total_code_alerts_by_severity[severity] += code_alerts.get(severity, 0)
+                
+                for severity in total_dependency_alerts_by_severity:
+                    total_dependency_alerts_by_severity[severity] += dependency_alerts.get(severity, 0)
             else:
                 skipped_repos += 1
                 
@@ -469,6 +617,22 @@ def main():
             f"- Total secret scanning alerts found: `{total_secret_alerts}`",
             f"- Total dependency vulnerability alerts found: `{total_dependency_alerts}`",
             f"- Total GHAS alerts across all scanned repos: `{total_code_alerts + total_secret_alerts + total_dependency_alerts}`",
+            "",
+            "**Code Scanning Alerts by Severity**",
+            f"- Critical: `{total_code_alerts_by_severity['critical']}`",
+            f"- High: `{total_code_alerts_by_severity['high']}`",
+            f"- Medium: `{total_code_alerts_by_severity['medium']}`",
+            f"- Low: `{total_code_alerts_by_severity['low']}`",
+            f"- Warning: `{total_code_alerts_by_severity['warning']}`",
+            f"- Note: `{total_code_alerts_by_severity['note']}`",
+            f"- Error: `{total_code_alerts_by_severity['error']}`",
+            "",
+            "**Dependency Scanning Alerts by Severity**",
+            f"- Critical: `{total_dependency_alerts_by_severity['critical']}`",
+            f"- High: `{total_dependency_alerts_by_severity['high']}`",
+            f"- Moderate: `{total_dependency_alerts_by_severity['moderate']}`",
+            f"- Low: `{total_dependency_alerts_by_severity['low']}`",
+            "",
             f"- Total execution time: `{duration}`",
             f"- Failed analysis repositories: `{len(failed_analysis_repos)}`"
         ]
