@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import ast
 import os
 import argparse
 import logging
@@ -324,7 +325,6 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                             logging.debug(f"Failed to parse JSON: {e}")
                             try:
                                 # Try to evaluate as a raw string (useful for escaped sequences)
-                                import ast
                                 raw_str = ast.literal_eval(f"'''{clean_json_str}'''")
                                 mcp_composition = json.loads(raw_str)
                             except Exception as e:
