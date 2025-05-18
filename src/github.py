@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from githubkit import GitHub, AppInstallationAuthStrategy
 from git import Repo, GitCommandError
-from githubkit.exception import RequestError, RequestFailed, RequestTimeout
+from githubkit.exception import RequestError, RequestFailed
 from pathlib import Path
 from urllib.parse import urlparse
 from githubkit.versions.latest.models import FullRepository
@@ -148,7 +148,9 @@ def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
                 except GitCommandError:
                     continue # Try next branch name
             else:
-                 logging.warning(f"Could not find 'main' or 'master' branch in remote. Local repo might not be up-to-date.")
+                logging.warning(
+                    "Could not find 'main' or 'master' branch in remote. Local repo might not be up-to-date."
+                )
 
         except GitCommandError as e:
             logging.error(f"Error updating repository at [{local_path}]: [{e}]")
@@ -427,6 +429,8 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
             
             # extract the tarball
             logging.info(f"Extracting tarball for [{repo_name}]")
+            # Create the target directory
+            local_repo_path.mkdir(parents=True, exist_ok=True)
             tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
             try:
                 process = subprocess.run(tar_command, capture_output=True, text=True, check=True)
