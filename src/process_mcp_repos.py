@@ -25,6 +25,44 @@ LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
 JSON_FILES_DIR_IN_REPO = Path("server/src/data/split")
 TARGET_ORG = "mcp-research" # The organization to fork into
 
+# Collection of MCP server list loader functions
+MCP_SERVER_LOADERS = []
+
+def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
+    """
+    Loads MCP server configurations from the MCP Agents Hub repository.
+    
+    This function clones or updates the MCP Agents Hub repository and finds
+    all JSON files in the specified directory within the repository.
+    
+    Returns:
+        A list of Path objects pointing to the JSON files containing server configurations.
+        Returns an empty list if no files are found or if there's an error.
+    """
+    # Clone or Update MCP Agents Hub repo
+    newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+    if newly_cloned:
+        logging.info(f"MCP Agents Hub repository newly cloned to [{LOCAL_REPO_PATH}]")
+    else:
+        logging.info(f"MCP Agents Hub repository at [{LOCAL_REPO_PATH}] already exists and was updated")
+    
+    # Find JSON files in the MCP Agents Hub repo
+    json_dir = LOCAL_REPO_PATH / JSON_FILES_DIR_IN_REPO
+    if not json_dir.is_dir():
+        logging.error(f"JSON directory not found: [{json_dir}]")
+        return []
+
+    all_json_files = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
+    if not all_json_files:
+        logging.warning(f"No JSON files found in [{json_dir}]")
+        return []
+    
+    logging.info(f"Found [{len(all_json_files)}] JSON files in MCP Agents Hub repository")
+    return all_json_files
+
+# Register the MCP Agents Hub loader
+MCP_SERVER_LOADERS.append(load_mcp_servers_from_mcp_agents_hub)
+
 def ensure_repository_fork(
     existing_repos: list[FullRepository],
     gh: Any,
@@ -376,25 +414,28 @@ def main():
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         initial_repo_count = len(existing_repos) # Store initial count
 
-        # Clone or Update MCP Agents Hub repo
-        newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
-        repos_cloned_count = 1 if newly_cloned else 0  # Track if MCP Agents Hub was newly cloned
-
-        # Find JSON files in the MCP Agents Hub repo
-        json_dir = LOCAL_REPO_PATH / JSON_FILES_DIR_IN_REPO
-        if not json_dir.is_dir():
-            logging.error(f"JSON directory not found: [{json_dir}]")
-            return
-
-        all_json_files = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
+        # Use all registered MCP server loaders to collect JSON files
+        all_json_files = []
+        repos_cloned_count = 0
+        
+        # Loop through all registered MCP server loaders
+        for loader_func in MCP_SERVER_LOADERS:
+            logging.info(f"Loading MCP servers using: {loader_func.__name__}")
+            json_files = loader_func()
+            if json_files:
+                all_json_files.extend(json_files)
+                repos_cloned_count += 1
+        
+        # Deduplicate JSON files (in case multiple sources have the same file)
+        all_json_files = sorted(list(set(all_json_files)))
+        
         if not all_json_files:
-            logging.warning(f"No JSON files found in [{json_dir}]")
+            logging.error("No MCP server configurations found. Exiting.")
             return
 
         # Limit based on the --num-repos argument
         num_to_process = args.num_repos
-        # Removed slicing: json_files_to_process = all_json_files[:num_to_process]
-        logging.info(f"Found [{len(all_json_files)}] JSON files. Will process up to [{num_to_process}] repositories based on --num-repos.")
+        logging.info(f"Found a total of [{len(all_json_files)}] JSON files from all sources. Will process up to [{num_to_process}] repositories based on --num-repos.")
 
         # Process Repos
         processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
