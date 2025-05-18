@@ -16,10 +16,13 @@ from githubkit.versions.latest.models import FullRepository
 
 # Import the local functions
 from .github import (
-    get_github_client, list_all_repositories_for_org,
-    list_all_repository_properties_for_org, get_repository_properties,
-    update_repository_properties, show_rate_limit, handle_github_api_error,
-    clone_repository
+    get_github_client,
+    list_all_repositories_for_org,
+    list_all_repository_properties_for_org,
+    update_repository_properties,
+    show_rate_limit,
+    handle_github_api_error,
+    clone_repository,
 )
 from .functions import should_scan_repository
 
@@ -303,7 +306,9 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                             end += 1
                             # Check if we've reached the end of the content
                             if end >= len(content):
-                                logging.error(f"Malformed JSON: Unclosed brackets in file")
+                                logging.error(
+                                    "Malformed JSON: Unclosed brackets in file"
+                                )
                                 mcp_composition = None
                                 break
                             if content[end] == '{':
@@ -332,12 +337,6 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                                 logging.debug(f"Problematic JSON: {clean_json_str}")
                                 mcp_composition = None
                         break
-            except UnicodeDecodeError as ude:
-                logging.debug(f"Skipping file with encoding issues: [{file_path}]: {ude}")
-            except IOError as ioe:
-                logging.debug(f"IO Error reading file [{file_path}]: {ioe}")
-            except Exception as e:
-                logging.debug(f"Error processing file [{file_path}]: {e}")
                 
         if mcp_composition:
             break
@@ -525,7 +524,9 @@ def main():
             try:
                 with open(summary_file_path, "a") as summary_file:  # Append mode
                     summary_file.write("\n".join(summary_lines) + "\n\n")
-                logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
+                logging.info(
+                    "Successfully appended summary to GITHUB_STEP_SUMMARY file"
+                )
             except Exception as e:
                 logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
         else:
