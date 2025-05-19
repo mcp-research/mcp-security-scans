@@ -34,11 +34,11 @@ def get_installation_github_client(
     """
     try:
         # Find the installation ID for the target organization
-        installations = gh_app.rest.app.get_installations().json()
+        installations = gh_app.rest.apps.list_installations().json()
         installation_id = None
         for inst in installations:
-            if inst.account and inst.account.login == target_org:
-                installation_id = inst.id
+            if inst.get("account", {}).get("login") == target_org:
+                installation_id = inst["id"]
                 break
 
         if not installation_id:
