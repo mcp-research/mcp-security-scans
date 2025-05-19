@@ -79,7 +79,7 @@ jobs:
               exit 1
           fi
 
-          echo "Successfully generated GitHub token"
+          echo "Successfully generated GitHub token with length: [${#TOKEN}]"
           
           # Run the repository properties creation script
           ./create_repo_properties.sh "$TARGET_ORG" "$TOKEN"
