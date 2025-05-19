@@ -45,14 +45,15 @@ def get_installation_github_client(
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")
 
         # Create an installation access token
-        installation_token = gh_app.rest.apps.create_installation_access_token(
+        token_response = gh_app.rest.apps.create_installation_access_token(
             installation_id=installation_id
-        ).json()
+        )
+        token_data = token_response.parsed_data
 
         # Create a new client with the token
-        gh_inst = GitHub(auth=installation_token["token"])
+        gh_inst = GitHub(auth=token_data.token)
         logging.info(f"GitHub client authenticated successfully for installation ID [{installation_id}] ([{target_org}]).")
-        return gh_inst, installation_token
+        return gh_inst, token_data
     except Exception as e:
         logging.error(f"Failed to get installation client for [{target_org}]: [{e}]")
         raise
