@@ -6,7 +6,7 @@ on:
       target_org:
         description: 'Target GitHub organization to create properties for'
         required: false
-        default: 'mcp-research' # Default from script
+        default: 'mcp-research'
   push:
     paths:
       - create_repo_properties.sh
