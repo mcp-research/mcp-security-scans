@@ -35,7 +35,7 @@ create_property() {
     fi
     
     # Construct JSON payload
-    json_data="{\"name\":\"$property_name\",\"value_type\":\"$value_type\""
+    json_data="{\"value_type\":\"$value_type\""
     
     # Add description if specified
     if [ -n "$property_description" ]; then
