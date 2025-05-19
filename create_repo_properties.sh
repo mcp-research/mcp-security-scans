@@ -49,19 +49,7 @@ create_property() {
     
     # Add default value if specified
     if [ -n "$default_value" ]; then
-        if [[ "$value_type" == "string" ]]; then
-            json_data="$json_data,\"default_value\":\"$default_value\""
-        elif [[ "$value_type" == "true_false" ]]; then
-            json_data="$json_data,\"default_value\":$default_value"
-        else
-            # For single_select and multi_select, expects JSON array
-            json_data="$json_data,\"default_value\":$default_value"
-        fi
-    fi
-    
-    # Add allowed_values if specified
-    if [ -n "$allowed_values" ]; then
-        json_data="$json_data,\"allowed_values\":$allowed_values"
+        json_data="$json_data,\"default_value\":\"\""
     fi
     
     # Add values_editable_by if specified
