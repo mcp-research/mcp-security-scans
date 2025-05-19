@@ -73,6 +73,8 @@ create_property() {
     
     # Close JSON object
     json_data="$json_data}"
+
+    echo "  JSON payload: $json_data"
     
     # Make API call to create the property
     response=$(curl -s -X PUT "https://api.github.com/orgs/$ORG_NAME/properties/schema/$property_name" \
