@@ -36,65 +36,6 @@ jobs:
           # Setup the project so that the src module is accessible
           pip install -e .
 
-      - name: Create Python script to generate token
-        run: |
-          cat > generate_token.py << 'EOL'
-          import os
-          import sys
-          import logging
-          from src.github import get_github_client
-
-          logging.basicConfig(level=logging.INFO)
-
-          def get_github_token():
-              app_id = os.environ.get('GH_APP_ID')
-              private_key = os.environ.get('GH_APP_PRIVATE_KEY')
-              target_org = os.environ.get('TARGET_ORG')
-              
-              if not app_id or not private_key or not target_org:
-                  logging.error("Missing required environment variables: GH_APP_ID, GH_APP_PRIVATE_KEY, TARGET_ORG")
-                  sys.exit(1)
-
-              try:
-                  # Get authenticated GitHub client using the app credentials
-                  gh_app = get_github_client(app_id, private_key)
-                  
-                  # Find the installation ID for the target organization
-                  installations = gh_app.apps.list_installations().json()
-                  installation_id = None
-                  for inst in installations:
-                      if inst.account and inst.account.login.lower() == target_org.lower():
-                          installation_id = inst.id
-                          break
-
-                  if not installation_id:
-                      logging.error(f"GitHub App installation not found for organization: {target_org}")
-                      sys.exit(1)
-                      
-                  # Get an access token for the installation
-                  token_response = gh_app.apps.create_installation_access_token(
-                      installation_id=installation_id,
-                      data={
-                          "repositories": ["private-mcp-security-scans"],
-                          "permissions": {
-                              "organization_custom_properties": "write",
-                              "repository_properties": "write"
-                          }
-                      }
-                  ).json()
-                  
-                  # Print only the token (to be captured by the bash script)
-                  print(token_response.token)
-                  return 0
-                  
-              except Exception as e:
-                  logging.error(f"Error generating token: {e}")
-                  sys.exit(1)
-
-          if __name__ == "__main__":
-              sys.exit(get_github_token())
-          EOL
-
       - name: Generate GitHub token and run script
         env:
           GH_APP_ID: ${{ vars.GH_APP_ID }}
@@ -103,16 +44,41 @@ jobs:
         run: |
           # Make scripts executable
           chmod +x create_repo_properties.sh
-          
-          # Generate token using the Python script
-          echo "Generating GitHub token for organization: $TARGET_ORG"
-          TOKEN=$(python generate_token.py)
-          
+
+          # Create and run Python script to get the token
+          cat << 'EOF' > get_token.py
+          import os
+          import sys
+          import logging
+          from src.github import get_github_client, get_installation_github_client
+
+          logging.basicConfig(level=logging.INFO)
+
+          app_id = os.environ['GH_APP_ID']
+          private_key = os.environ['GH_APP_PRIVATE_KEY']
+          target_org = os.environ['TARGET_ORG']
+
+          try:
+              # Get the GitHub App client
+              gh_app = get_github_client(app_id, private_key)
+              
+              # Get the installation client and auth
+              _, installation_auth = get_installation_github_client(gh_app, target_org)
+              
+              # Print the token so we can capture it in the shell
+              print(installation_auth.token)
+          except Exception as e:
+              logging.error(f"Failed to generate token: [{e}]")
+              sys.exit(1)
+          EOF
+
+          # Run the Python script and capture the token
+          TOKEN=$(python get_token.py)
           if [ $? -ne 0 ]; then
-            echo "Failed to generate GitHub token"
-            exit 1
+              echo "Failed to generate GitHub token"
+              exit 1
           fi
-          
+
           echo "Successfully generated GitHub token"
           
           # Run the repository properties creation script
