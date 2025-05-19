@@ -33,14 +33,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install githubkit
+          # Setup the project so that the src module is accessible
+          pip install -e .
 
       - name: Create Python script to generate token
         run: |
           cat > generate_token.py << 'EOL'
           import os
           import sys
-          from githubkit import GitHub, AppInstallationAuthStrategy
           import logging
+          from src.github import get_github_client
 
           logging.basicConfig(level=logging.INFO)
 
@@ -54,14 +56,8 @@ jobs:
                   sys.exit(1)
 
               try:
-                  # Create GitHub App auth strategy
-                  auth = AppInstallationAuthStrategy(
-                      app_id=int(app_id),
-                      private_key=private_key
-                  )
-                  
-                  # Create GitHub client
-                  gh_app = GitHub(auth)
+                  # Get authenticated GitHub client using the app credentials
+                  gh_app = get_github_client(app_id, private_key)
                   
                   # Find the installation ID for the target organization
                   installations = gh_app.apps.list_installations().json()
