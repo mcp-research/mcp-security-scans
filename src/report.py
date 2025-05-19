@@ -26,6 +26,22 @@ DEFAULT_TARGET_ORG = "mcp-research"  # Default organization to scan
 CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
 SECRET_ALERTS = "SecretAlerts"  # Property name for secret scanning alerts
 DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
+
+# Property names for code scanning alerts by severity
+CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
+CODE_ALERTS_HIGH = "CodeAlerts_High"
+CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
+CODE_ALERTS_LOW = "CodeAlerts_Low"
+
+# Property names for secret scanning alerts (no standard severity levels)
+SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
+
+# Property names for dependency alerts by severity
+DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
+DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
+
 GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
 REPORT_DIR = "reports"  # Directory to save reports
 
@@ -97,16 +113,40 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
     scanned_repos = 0
     repos_with_alerts = 0
     
+    # Total alert counts
     total_code_alerts = 0
     total_secret_alerts = 0
     total_dependency_alerts = 0
+    
+    # Alert counts by severity
+    code_alerts_by_severity = {
+        'critical': 0,
+        'high': 0,
+        'medium': 0,
+        'low': 0
+    }
+    
+    dependency_alerts_by_severity = {
+        'critical': 0,
+        'high': 0,
+        'moderate': 0,
+        'low': 0
+    }
     
     # Dictionary to track alerts by date
     alerts_by_date = defaultdict(lambda: {
         'code': 0,
         'secret': 0,
         'dependency': 0,
-        'total': 0
+        'total': 0,
+        'code_critical': 0,
+        'code_high': 0,
+        'code_medium': 0,
+        'code_low': 0,
+        'dependency_critical': 0,
+        'dependency_high': 0,
+        'dependency_moderate': 0,
+        'dependency_low': 0
     })
     
     # Dictionary to store repositories with alerts
@@ -133,10 +173,33 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             secret_alerts = safe_int_convert(properties.get(SECRET_ALERTS, 0))
             dependency_alerts = safe_int_convert(properties.get(DEPENDENCY_ALERTS, 0))
             
+            # Get code scanning alert counts by severity
+            code_critical = safe_int_convert(properties.get(CODE_ALERTS_CRITICAL, 0))
+            code_high = safe_int_convert(properties.get(CODE_ALERTS_HIGH, 0))
+            code_medium = safe_int_convert(properties.get(CODE_ALERTS_MEDIUM, 0))
+            code_low = safe_int_convert(properties.get(CODE_ALERTS_LOW, 0))
+            
+            # Get dependency alert counts by severity
+            dep_critical = safe_int_convert(properties.get(DEPENDENCY_ALERTS_CRITICAL, 0))
+            dep_high = safe_int_convert(properties.get(DEPENDENCY_ALERTS_HIGH, 0))
+            dep_moderate = safe_int_convert(properties.get(DEPENDENCY_ALERTS_MODERATE, 0))
+            dep_low = safe_int_convert(properties.get(DEPENDENCY_ALERTS_LOW, 0))
+            
             # Add to totals
             total_code_alerts += code_alerts
             total_secret_alerts += secret_alerts
             total_dependency_alerts += dependency_alerts
+            
+            # Add to severity totals
+            code_alerts_by_severity['critical'] += code_critical
+            code_alerts_by_severity['high'] += code_high
+            code_alerts_by_severity['medium'] += code_medium
+            code_alerts_by_severity['low'] += code_low
+            
+            dependency_alerts_by_severity['critical'] += dep_critical
+            dependency_alerts_by_severity['high'] += dep_high
+            dependency_alerts_by_severity['moderate'] += dep_moderate
+            dependency_alerts_by_severity['low'] += dep_low
             
             # Track repositories with alerts
             if code_alerts > 0 or secret_alerts > 0 or dependency_alerts > 0:
@@ -146,7 +209,16 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                     'secret': secret_alerts,
                     'dependency': dependency_alerts,
                     'total': code_alerts + secret_alerts + dependency_alerts,
-                    'scan_date': scan_date_str
+                    'scan_date': scan_date_str,
+                    # Add severity breakdowns
+                    'code_critical': code_critical,
+                    'code_high': code_high,
+                    'code_medium': code_medium,
+                    'code_low': code_low,
+                    'dep_critical': dep_critical,
+                    'dep_high': dep_high,
+                    'dep_moderate': dep_moderate,
+                    'dep_low': dep_low
                 }
             
             # Track alerts by date
@@ -156,6 +228,15 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 alerts_by_date[date_key]['secret'] += secret_alerts
                 alerts_by_date[date_key]['dependency'] += dependency_alerts
                 alerts_by_date[date_key]['total'] += (code_alerts + secret_alerts + dependency_alerts)
+                # Add severity info to alerts_by_date
+                alerts_by_date[date_key]['code_critical'] += code_critical
+                alerts_by_date[date_key]['code_high'] += code_high
+                alerts_by_date[date_key]['code_medium'] += code_medium
+                alerts_by_date[date_key]['code_low'] += code_low
+                alerts_by_date[date_key]['dependency_critical'] += dep_critical
+                alerts_by_date[date_key]['dependency_high'] += dep_high
+                alerts_by_date[date_key]['dependency_moderate'] += dep_moderate
+                alerts_by_date[date_key]['dependency_low'] += dep_low
     
     # Calculate totals
     total_alerts = total_code_alerts + total_secret_alerts + total_dependency_alerts
@@ -169,7 +250,10 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'total_code_alerts': total_code_alerts,
         'total_secret_alerts': total_secret_alerts,
         'total_dependency_alerts': total_dependency_alerts,
-        'total_alerts': total_alerts,
+        'total_alerts': total_code_alerts + total_secret_alerts + total_dependency_alerts,
+        # Add severity breakdowns
+        'code_alerts_by_severity': code_alerts_by_severity,
+        'dependency_alerts_by_severity': dependency_alerts_by_severity,
         'alerts_by_date': dict(alerts_by_date),
         'repos_alerts': repos_alerts,
         'report_date': datetime.datetime.now().isoformat(),
@@ -222,6 +306,19 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         f.write(f"  - Secret Scanning Alerts: {stats['total_secret_alerts']}\n")
         f.write(f"  - Dependency Alerts: {stats['total_dependency_alerts']}\n\n")
         
+        # Add severity breakdown sections
+        f.write("## Code Scanning Alerts by Severity\n\n")
+        f.write(f"- Critical: {stats['code_alerts_by_severity']['critical']}\n")
+        f.write(f"- High: {stats['code_alerts_by_severity']['high']}\n")
+        f.write(f"- Medium: {stats['code_alerts_by_severity']['medium']}\n")
+        f.write(f"- Low: {stats['code_alerts_by_severity']['low']}\n\n")
+        
+        f.write("## Dependency Alerts by Severity\n\n")
+        f.write(f"- Critical: {stats['dependency_alerts_by_severity']['critical']}\n")
+        f.write(f"- High: {stats['dependency_alerts_by_severity']['high']}\n")
+        f.write(f"- Moderate: {stats['dependency_alerts_by_severity']['moderate']}\n")
+        f.write(f"- Low: {stats['dependency_alerts_by_severity']['low']}\n\n")
+        
         # Coverage statistics
         if stats['total_repositories'] > 0:
             scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
@@ -244,6 +341,23 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
             # List top 10 repositories or all if less than 10
             for repo_name, repo_data in top_repos[:10]:
                 f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | {repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
+            
+            # Add a section for repositories with most critical alerts
+            f.write(f"\n## Top Repositories with Critical Alerts\n\n")
+            f.write("| Repository | Critical Code | Critical Dependencies |\n")
+            f.write("|------------|--------------|----------------------|\n")
+            
+            # Sort repositories by critical alerts (code + dependency)
+            critical_repos = sorted(
+                stats['repos_alerts'].items(),
+                key=lambda x: (x[1].get('code_critical', 0) + x[1].get('dep_critical', 0)),
+                reverse=True
+            )
+            
+            # List top 10 repositories with critical alerts
+            for repo_name, repo_data in critical_repos[:10]:
+                if repo_data.get('code_critical', 0) > 0 or repo_data.get('dep_critical', 0) > 0:
+                    f.write(f"| {repo_name} | {repo_data.get('code_critical', 0)} | {repo_data.get('dep_critical', 0)} |\n")
 
 def print_console_summary(stats: Dict) -> None:
     """
@@ -263,10 +377,23 @@ def print_console_summary(stats: Dict) -> None:
     print(f"  - Secret Scanning Alerts: {stats['total_secret_alerts']}")
     print(f"  - Dependency Alerts: {stats['total_dependency_alerts']}")
     
+    # Print severity breakdowns
+    print("\nCode Scanning Alerts by Severity:")
+    print(f"  - Critical: {stats['code_alerts_by_severity']['critical']}")
+    print(f"  - High: {stats['code_alerts_by_severity']['high']}")
+    print(f"  - Medium: {stats['code_alerts_by_severity']['medium']}")
+    print(f"  - Low: {stats['code_alerts_by_severity']['low']}")
+    
+    print("\nDependency Alerts by Severity:")
+    print(f"  - Critical: {stats['dependency_alerts_by_severity']['critical']}")
+    print(f"  - High: {stats['dependency_alerts_by_severity']['high']}")
+    print(f"  - Moderate: {stats['dependency_alerts_by_severity']['moderate']}")
+    print(f"  - Low: {stats['dependency_alerts_by_severity']['low']}")
+    
     # Calculate percentages if possible
     if stats['total_repositories'] > 0:
         scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
-        print(f"Scan Coverage: {scan_coverage:.1f}%")
+        print(f"\nScan Coverage: {scan_coverage:.1f}%")
     
     # Only show sensitive data if not running in CI
     if not (os.getenv("CI")):
@@ -279,6 +406,24 @@ def print_console_summary(stats: Dict) -> None:
         
         for i, (repo_name, repo_data) in enumerate(top_repos[:5], 1):
             print(f"{i}. {repo_name}: {repo_data['total']} alerts")
+        
+        # Show top 5 repositories with critical alerts
+        print("\nTop 5 Repositories with Critical Alerts:")
+        critical_repos = sorted(
+            stats['repos_alerts'].items(),
+            key=lambda x: (x[1].get('code_critical', 0) + x[1].get('dep_critical', 0)),
+            reverse=True
+        )
+        
+        critical_count = 0
+        for i, (repo_name, repo_data) in enumerate(critical_repos, 1):
+            critical_code = repo_data.get('code_critical', 0)
+            critical_dep = repo_data.get('dep_critical', 0)
+            if critical_code > 0 or critical_dep > 0:
+                print(f"{critical_count+1}. {repo_name}: {critical_code} critical code alerts, {critical_dep} critical dependency alerts")
+                critical_count += 1
+                if critical_count >= 5:
+                    break
     
     print(f"\nDetailed reports saved to {REPORT_DIR}/ directory")
 
