@@ -58,14 +58,14 @@ create_property() {
         -d "$json_data")
     
     # Check for errors
-    if echo "$response" | grep -q "message"; then
-        error_message=$(echo "$response" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
+    if echo "$response" | jq -e '.message' >/dev/null 2>&1; then
+        error_message=$(echo "$response" | jq -r '.message')
         
         # If the error message indicates the property already exists, that's okay
-        if echo "$error_message" | grep -q "already exists"; then
+        if [[ "$error_message" == *"already exists"* ]]; then
             echo "  Property already exists, skipping."
         else
-            echo "  Error creating property: $error_message"
+            echo "  Error creating property: [$error_message]"
         fi
     else
         echo "  Property created successfully."
