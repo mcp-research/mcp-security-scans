@@ -20,38 +20,62 @@ echo "Creating repository properties for organization: $ORG_NAME"
 create_property() {
     local property_name="$1"
     local property_description="$2"
-    local property_type="$3"
+    local value_type="$3"
     local required="$4"
     local default_value="$5"
+    local allowed_values="$6"
+    local values_editable_by="$7"
     
-    echo "Creating property: $property_name ($property_type)"
+    echo "Creating property: $property_name ($value_type)"
+    
+    # Validate value_type
+    if [[ ! "$value_type" =~ ^(string|single_select|multi_select|true_false)$ ]]; then
+        echo "Error: Invalid value_type. Must be one of: string, single_select, multi_select, true_false"
+        return 1
+    fi
     
     # Construct JSON payload
-    json_data="{\"name\":\"$property_name\",\"description\":\"$property_description\",\"type\":\"$property_type\""
+    json_data="{\"name\":\"$property_name\",\"value_type\":\"$value_type\""
+    
+    # Add description if specified
+    if [ -n "$property_description" ]; then
+        json_data="$json_data,\"description\":\"$property_description\""
+    fi
     
     # Add required field if specified
     if [ -n "$required" ]; then
         json_data="$json_data,\"required\":$required"
     fi
     
-    # Add default value if specified (for string type)
-    if [ -n "$default_value" ] && [ "$property_type" = "string" ]; then
-        json_data="$json_data,\"default\":\"$default_value\""
+    # Add default value if specified
+    if [ -n "$default_value" ]; then
+        if [[ "$value_type" == "string" ]]; then
+            json_data="$json_data,\"default_value\":\"$default_value\""
+        elif [[ "$value_type" == "true_false" ]]; then
+            json_data="$json_data,\"default_value\":$default_value"
+        else
+            # For single_select and multi_select, expects JSON array
+            json_data="$json_data,\"default_value\":$default_value"
+        fi
     fi
     
-    # Add default value if specified (for number or boolean type)
-    if [ -n "$default_value" ] && [ "$property_type" != "string" ]; then
-        json_data="$json_data,\"default\":$default_value"
+    # Add allowed_values if specified
+    if [ -n "$allowed_values" ]; then
+        json_data="$json_data,\"allowed_values\":$allowed_values"
     fi
     
-    # Make properties settable by repository actors
-    json_data="$json_data,\"allowed_values_setter\":\"REPOSITORY\""
+    # Add values_editable_by if specified
+    if [ -n "$values_editable_by" ]; then
+        if [[ "$values_editable_by" =~ ^(org_actors|org_and_repo_actors)$ ]]; then
+            json_data="$json_data,\"values_editable_by\":\"$values_editable_by\""
+        fi
+    fi
     
     # Close JSON object
     json_data="$json_data}"
     
     # Make API call to create the property
-    response=$(curl -s -X POST "https://api.github.com/orgs/$ORG_NAME/properties/schema" \
+    response=$(curl -s -X PUT "https://api.github.com/orgs/$ORG_NAME/properties/schema/$property_name" \
         -H "Accept: application/vnd.github+json" \
         -H "Authorization: token $TOKEN" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -75,26 +99,26 @@ create_property() {
 # Create all the repository properties needed
 
 # Last scan timestamp properties
-create_property "GHAS_Status_Updated" "Timestamp of last GHAS status update" "string" "false" ""
+create_property "GHAS_Status_Updated" "Timestamp of last GHAS status update" "string" "false" "" "" "org_and_repo_actors"
 
-# Total alert count properties (for backward compatibility)
-create_property "CodeAlerts" "Total number of code scanning alerts" "number" "false" "0"
-create_property "SecretAlerts" "Total number of secret scanning alerts" "number" "false" "0"
-create_property "DependencyAlerts" "Total number of dependency alerts" "number" "false" "0"
+# Total alert count properties
+create_property "CodeAlerts" "Total number of code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "SecretAlerts" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "DependencyAlerts" "Total number of dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 # Code scanning alerts by severity
-create_property "CodeAlerts_Critical" "Number of critical code scanning alerts" "number" "false" "0"
-create_property "CodeAlerts_High" "Number of high code scanning alerts" "number" "false" "0"
-create_property "CodeAlerts_Medium" "Number of medium code scanning alerts" "number" "false" "0"
-create_property "CodeAlerts_Low" "Number of low code scanning alerts" "number" "false" "0"
+create_property "CodeAlerts_Critical" "Number of critical code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "CodeAlerts_High" "Number of high code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "CodeAlerts_Medium" "Number of medium code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "CodeAlerts_Low" "Number of low code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 # Secret scanning alerts (total only, no severity levels)
-create_property "SecretAlerts_Total" "Total number of secret scanning alerts" "number" "false" "0"
+create_property "SecretAlerts_Total" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 # Dependency alerts by severity
-create_property "DependencyAlerts_Critical" "Number of critical dependency alerts" "number" "false" "0"
-create_property "DependencyAlerts_High" "Number of high dependency alerts" "number" "false" "0"
-create_property "DependencyAlerts_Moderate" "Number of moderate dependency alerts" "number" "false" "0"
-create_property "DependencyAlerts_Low" "Number of low dependency alerts" "number" "false" "0"
+create_property "DependencyAlerts_Critical" "Number of critical dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "DependencyAlerts_High" "Number of high dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "DependencyAlerts_Moderate" "Number of moderate dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "DependencyAlerts_Low" "Number of low dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 echo "Repository properties creation completed."
