@@ -621,6 +621,7 @@ def main():
         
         # Add a table with failed analysis repositories if any
         if failed_analysis_repos:
+            summary_lines.append("")  # Add empty line for proper markdown rendering
             summary_lines.append("**Failed Analysis Repositories**")
             summary_lines.append("")
             summary_lines.append("| Repository | Reason |")
