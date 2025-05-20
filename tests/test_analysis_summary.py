@@ -37,7 +37,7 @@ class TestAnalysisSummary(unittest.TestCase):
         
         # Generate the summary lines for these repos
         summary_lines = [
-            "**Failed Analysis Repositories**",
+            "Failed Analysis Repositories",
             "| Repository | Reason |",
             "| ---------- | ------ |"
         ]
@@ -47,7 +47,7 @@ class TestAnalysisSummary(unittest.TestCase):
         
         # Verify the summary table format
         self.assertEqual(len(summary_lines), 3 + len(failed_repos), "Table should have header rows + one row per repo")
-        self.assertEqual(summary_lines[0], "**Failed Analysis Repositories**", "Title should be formatted with markdown bold")
+        self.assertEqual(summary_lines[0], "Failed Analysis Repositories", "Title should match expected format")
         self.assertEqual(summary_lines[1], "| Repository | Reason |", "Header row should have column names")
         self.assertEqual(summary_lines[2], "| ---------- | ------ |", "Second row should have markdown separator")
         

@@ -616,18 +616,18 @@ def main():
             f"- Low: `{total_dependency_alerts_by_severity['low']}`",
             "",
             f"- Total execution time: `{duration}`",
-            f"- Failed analysis repositories: `{len(failed_analysis_repos)}`"
+            f"• Failed analysis repositories: {len(failed_analysis_repos)}"
         ]
         
         # Add a table with failed analysis repositories if any
         if failed_analysis_repos:
-            summary_lines.append("**Failed Analysis Repositories**")
+            summary_lines.append("")
+            summary_lines.append("Failed Analysis Repositories")
             summary_lines.append("")
             summary_lines.append("| Repository | Reason |")
             summary_lines.append("| ---------- | ------ |")
             for repo in failed_analysis_repos:
                 summary_lines.append(f"| {repo['name']} | {repo['reason']} |")
-            summary_lines.append("\n")
         
         # Log summary to console
         logging.info("Scanning Summary")
