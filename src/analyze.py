@@ -98,10 +98,16 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["medium"] += 1
             elif severity == "low":
                 result["low"] += 1
+            # Map additional severity levels: warning, note -> low, error -> medium (as it needs attention)
+            elif severity == "warning" or severity == "note":
+                result["low"] += 1
+            elif severity == "error":
+                result["medium"] += 1
             
         logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                    f"Medium: {result['medium']}, Low: {result['low']}")
+                    f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
+                    f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
         
         return result
         

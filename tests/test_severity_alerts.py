@@ -70,6 +70,33 @@ class TestSeverityAlerts(unittest.TestCase):
         self.assertEqual(result["moderate"], 2)  # 1 moderate + 1 medium
         self.assertEqual(result["low"], 1)
         
+    def test_code_scanning_alerts_with_additional_severity_levels(self):
+        """Test that code scanning alerts with additional severity levels are categorized correctly."""
+        # Create mock GitHub client and response
+        mock_gh = MagicMock()
+        mock_alerts = [
+            MagicMock(rule=MagicMock(severity="critical")),
+            MagicMock(rule=MagicMock(severity="high")),
+            MagicMock(rule=MagicMock(severity="medium")),
+            MagicMock(rule=MagicMock(severity="low")),
+            MagicMock(rule=MagicMock(severity="warning")), # Should map to low
+            MagicMock(rule=MagicMock(severity="note")),    # Should map to low
+            MagicMock(rule=MagicMock(severity="error")),   # Should map to medium
+        ]
+        
+        # Set up the mock to return our list
+        mock_gh.rest.paginate.return_value = mock_alerts
+        
+        # Call the function with the mock
+        result = get_code_scanning_alerts(mock_gh, "owner", "repo")
+        
+        # Verify the results
+        self.assertEqual(result["total"], 7)
+        self.assertEqual(result["critical"], 1)
+        self.assertEqual(result["high"], 1)
+        self.assertEqual(result["medium"], 2)  # medium + error
+        self.assertEqual(result["low"], 3)     # low + warning + note
+        
     def test_secret_scanning_alerts(self):
         """Test that secret scanning alerts are counted."""
         # Create mock GitHub client and response
