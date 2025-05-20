@@ -616,6 +616,7 @@ def main():
         # Add a table with failed analysis repositories if any
         if failed_analysis_repos:
             summary_lines.append("**Failed Analysis Repositories**")
+            summary_lines.append("")
             summary_lines.append("| Repository | Reason |")
             summary_lines.append("| ---------- | ------ |")
             for repo in failed_analysis_repos:
