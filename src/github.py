@@ -394,14 +394,25 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         local_repo_path: Path where the repository will be cloned.
     """
     # check if the folder already exists
-    if not local_repo_path.exists():
-        local_repo_path.mkdir(parents=True)
+    if local_repo_path.exists():
+        import shutil
+        logging.info(f"Cleaning existing directory [{local_repo_path}]")
+        shutil.rmtree(local_repo_path)
+    
+    # Create a temporary directory for extraction
+    temp_extract_path = Path(f"{local_repo_path}_temp")
+    if temp_extract_path.exists():
+        import shutil
+        shutil.rmtree(temp_extract_path)
+    temp_extract_path.mkdir(parents=True)
+    
+    # Ensure parent directory exists for the final repo path
+    local_repo_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
     
     max_retries = 3
     retry_delay = 2  # seconds
-    
     for attempt in range(1, max_retries + 1):
         try:
             # Get tarball URL from GitHub
@@ -429,6 +440,8 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
             
             # extract the tarball
             logging.info(f"Extracting tarball for [{repo_name}]")
+            # Create the target directory
+            local_repo_path.mkdir(parents=True, exist_ok=True)
             tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
             try:
                 process = subprocess.run(tar_command, capture_output=True, text=True, check=True)

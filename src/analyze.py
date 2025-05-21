@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import ast
 import os
 import argparse
 import logging
@@ -15,10 +16,13 @@ from githubkit.versions.latest.models import FullRepository
 
 # Import the local functions
 from .github import (
-    get_github_client, list_all_repositories_for_org,
-    list_all_repository_properties_for_org, get_repository_properties,
-    update_repository_properties, show_rate_limit, handle_github_api_error,
-    clone_repository
+    get_github_client,
+    list_all_repositories_for_org,
+    list_all_repository_properties_for_org,
+    update_repository_properties,
+    show_rate_limit,
+    handle_github_api_error,
+    clone_repository,
 )
 from .functions import should_scan_repository
 
@@ -347,6 +351,19 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
     # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
     # search without spaces in the file content
     mcp_composition = None
+    
+    # Ensure the repo path exists
+    if not local_repo_path.exists():
+        logging.error(f"Repository path does not exist: [{local_repo_path}]")
+        return None
+        
+    # Check if it's actually a directory
+    if not local_repo_path.is_dir():
+        logging.error(f"Repository path is not a directory: [{local_repo_path}]")
+        return None
+    
+    logging.info(f"Scanning repository at [{local_repo_path}] for MCP composition")
+    
     for root, dirs, files in os.walk(local_repo_path):
         for file in files:
             file_path = os.path.join(root, file)
@@ -362,8 +379,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                 continue
 
             try:
-                # Try reading with UTF-8 first
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
             except UnicodeDecodeError:
                 try:
@@ -401,7 +417,9 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                             end += 1
                             # Check if we've reached the end of the content
                             if end >= len(content):
-                                logging.error(f"Malformed JSON: Unclosed brackets in file")
+                                logging.error(
+                                    "Malformed JSON: Unclosed brackets in file"
+                                )
                                 mcp_composition = None
                                 break
                             if content[end] == '{':
@@ -423,14 +441,14 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                             logging.debug(f"Failed to parse JSON: {e}")
                             try:
                                 # Try to evaluate as a raw string (useful for escaped sequences)
-                                import ast
                                 raw_str = ast.literal_eval(f"'''{clean_json_str}'''")
                                 mcp_composition = json.loads(raw_str)
                             except Exception as e:
                                 logging.error(f"Failed to parse MCP composition JSON: {e}")
-                                logging.debug(f"Problematic JSON: {raw_str}")
+                                logging.debug(f"Problematic JSON: {clean_json_str}")
                                 mcp_composition = None
                         break
+                
         if mcp_composition:
             break
     
@@ -544,6 +562,11 @@ def main():
             # locate the default branch of the fork
             fork_default_branch = repo.default_branch if repo.fork else None
 
+            # create the tmp directory if it doesn't exist
+            tmp_dir = Path("tmp")
+            if not tmp_dir.exists():
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+
             # clone the repo to a temp directory
             local_repo_path = Path(f"tmp/{repo.name}")
             clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
@@ -649,7 +672,9 @@ def main():
             try:
                 with open(summary_file_path, "a") as summary_file:  # Append mode
                     summary_file.write("\n".join(summary_lines) + "\n\n")
-                logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
+                logging.info(
+                    "Successfully appended summary to GITHUB_STEP_SUMMARY file"
+                )
             except Exception as e:
                 logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
         else:
