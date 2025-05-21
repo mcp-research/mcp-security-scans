@@ -1,3 +1,6 @@
+# Workflow for setting up a custom environment for GitHub Copilot Coding Agent
+# This workflow configures a larger runner with all necessary dependencies
+# It activates only on PRs with the 'copilot-agent' label
 name: Copilot Coding Agent Environment
 
 on:
@@ -44,6 +47,14 @@ jobs:
           pip install -r requirements.txt
       
       - name: Set environment for agent
+        env:
+          # Configuration variables - not storing actual secrets here
+          # Just setting up placeholders for what the agent will need
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
+          # GH_APP_PRIVATE_KEY would come from secrets in actual runs
+          # Set default values for commonly used arguments
+          DEFAULT_TARGET_ORG: "mcp-research" 
+          DEFAULT_NUM_REPOS: "10"
         run: |
           echo "Repository is ready for Copilot Coding Agent"
           echo "Python version: $(python --version)"
@@ -52,3 +63,10 @@ jobs:
           
           # Setup any directories that might be needed
           mkdir -p reports
+          
+          # Document available commands for the agent
+          echo "Available commands in this repository:"
+          echo "- python -m src.process_mcp_repos [--target-org ORG] [--num-repos NUM]"
+          echo "- python -m src.analyze [--target-org ORG] [--num-repos NUM] [--verbose]"
+          echo "- python -m src.report"
+          echo "- python -m unittest tests.test_mcp_scan"

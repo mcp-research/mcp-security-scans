@@ -91,3 +91,19 @@ The script will log its progress to the console.
 ```bash
 python -m unittest tests.test_mcp_scan
 ```
+
+## Development with Copilot Coding Agent
+
+This repository is configured to work with GitHub Copilot Coding Agent for faster PR creation and development.
+
+### Using Copilot Coding Agent:
+
+1. Create a new branch for your changes
+2. Create a Pull Request with that branch
+3. Add the `copilot-agent` label to the PR
+4. The PR will automatically trigger our custom Copilot Agent environment with:
+   - A larger runner (16 cores) for improved performance
+   - All required dependencies pre-installed
+   - Proper environment setup
+
+The workflow configuration for the Copilot Coding Agent is located in `.github/workflows/copilot-agent.yml`.
