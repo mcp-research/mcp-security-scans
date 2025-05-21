@@ -1,0 +1,54 @@
+name: Copilot Coding Agent Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  setup-environment:
+    # Only run this workflow when the PR has the 'copilot-agent' label
+    if: contains(github.event.pull_request.labels.*.name, 'copilot-agent')
+    name: Setup Coding Agent Environment
+    # Using a larger runner for faster processing
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 30  # Set a timeout to prevent hanging jobs
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'  # Same as used in other workflows
+          cache: 'pip'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Set environment for agent
+        run: |
+          echo "Repository is ready for Copilot Coding Agent"
+          echo "Python version: $(python --version)"
+          echo "Installed dependencies:"
+          pip list
+          
+          # Setup any directories that might be needed
+          mkdir -p reports
