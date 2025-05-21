@@ -17,7 +17,7 @@ on:
 
   push:
     paths:
-      - src/*
+      - src/process_mcp_repos.py
       - .github/workflows/run_mcp_processing.yml
 
 jobs:

@@ -22,8 +22,57 @@ load_dotenv() # Load environment variables from .env file
 # Constants
 MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
 LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
-JSON_FILES_DIR_IN_REPO = Path("server/src/data/split")
+server_files_from_loader_DIR_IN_REPO = Path("server/src/data/split")
 TARGET_ORG = "mcp-research" # The organization to fork into
+
+# Collection of MCP server list loader functions
+MCP_SERVER_LOADERS = []
+
+def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
+    """
+    Loads MCP server configurations from the MCP Agents Hub repository.
+    
+    This function clones or updates the MCP Agents Hub repository and finds
+    all JSON files in the specified directory within the repository.
+    
+    Returns:
+        A list of Path objects pointing to the JSON files containing server configurations.
+        Returns an empty list if no files are found or if there's an error.
+    """
+    # Clone or Update MCP Agents Hub repo
+    newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+    if newly_cloned:
+        logging.info(f"MCP Agents Hub repository newly cloned to [{LOCAL_REPO_PATH}]")
+    else:
+        logging.info(f"MCP Agents Hub repository at [{LOCAL_REPO_PATH}] already exists and was updated")
+    
+    # Find JSON files in the MCP Agents Hub repo
+    json_dir = LOCAL_REPO_PATH / server_files_from_loader_DIR_IN_REPO
+    if not json_dir.is_dir():
+        logging.error(f"JSON directory not found: [{json_dir}]")
+        return []
+
+    server_repo = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
+    if not server_repo:
+        logging.warning(f"No JSON files found in [{json_dir}]")
+        return []
+    
+    logging.info(f"Found [{len(server_repo)}] JSON files in MCP Agents Hub repository")
+
+    all_server_repos = []
+    for json_file_path in server_repo:
+        with open(json_file_path, 'r') as f:
+            data = json.load(f)
+            github_url = data.get("githubUrl")
+            if github_url:
+                all_server_repos.append(github_url)
+            else:
+                logging.warning(f"Skipping [{json_file_path.name}]: 'githubUrl' not found.")
+
+    return all_server_repos
+
+# Register the MCP Agents Hub loader
+MCP_SERVER_LOADERS.append(load_mcp_servers_from_mcp_agents_hub)
 
 def ensure_repository_fork(
     existing_repos: list[FullRepository],
@@ -210,9 +259,9 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
     except Exception as e:
         logging.error(f"An unexpected error occurred updating forked repository [{target_org}/{target_repo_name}]: [{e}]")
 
-def process_repository_from_json(
+def process_repository(
     existing_repos: list[FullRepository],
-    json_file_path: Path,
+    github_url: str,
     gh: Any, # Replace Any with the actual type of the GitHub client
     target_org: str,
     existing_repos_properties: list[dict],
@@ -224,7 +273,7 @@ def process_repository_from_json(
 
     Args:
         existing_repos: List of existing repositories in the target organization.
-        json_file_path: Path to the JSON file containing repository info.
+        githubUrl: url to the GitHub url to analyze.
         gh: Authenticated GitHub client instance.
         target_org: The target GitHub organization to fork into.
         existing_repos_properties: List of repository properties.
@@ -241,17 +290,13 @@ def process_repository_from_json(
     source_repo_full_name = None # Keep track of the source repo name for adding to the set
 
     try:
-        with open(json_file_path, 'r') as f:
-            data = json.load(f)
-
-        github_url = data.get("githubUrl")
         if not github_url:
-            logging.warning(f"Skipping [{json_file_path.name}]: 'githubUrl' not found.")
+            logging.warning(f"Skipping empty githubUrl.")
             return 0, 0, False, False # No processing, not skipped/failed in the specific ways tracked
 
         source_owner, source_repo = extract_repo_owner_name(github_url)
         if not source_owner or not source_repo:
-            logging.warning(f"Skipping [{json_file_path.name}]: Could not parse owner/repo from URL '[{github_url}]'.")
+            logging.warning(f"Could not parse owner/repo from URL '[{github_url}]'.")
             return 0, 0, False, False # No processing
 
         source_repo_full_name = f"{source_owner}/{source_repo}"
@@ -376,25 +421,26 @@ def main():
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
         initial_repo_count = len(existing_repos) # Store initial count
 
-        # Clone or Update MCP Agents Hub repo
-        newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
-        repos_cloned_count = 1 if newly_cloned else 0  # Track if MCP Agents Hub was newly cloned
-
-        # Find JSON files in the MCP Agents Hub repo
-        json_dir = LOCAL_REPO_PATH / JSON_FILES_DIR_IN_REPO
-        if not json_dir.is_dir():
-            logging.error(f"JSON directory not found: [{json_dir}]")
-            return
-
-        all_json_files = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
-        if not all_json_files:
-            logging.warning(f"No JSON files found in [{json_dir}]")
+        # Use all registered MCP server loaders to collect JSON files
+        all_server_repos = []
+        
+        # Loop through all registered MCP server loaders
+        for loader_func in MCP_SERVER_LOADERS:
+            logging.info(f"Loading MCP servers using: {loader_func.__name__}")
+            server_files_from_loader = loader_func()
+            if server_files_from_loader:
+                all_server_repos.extend(server_files_from_loader)
+        
+        # Deduplicate JSON files (in case multiple sources have the same file)
+        all_server_repos = sorted(list(set(all_server_repos)))
+        
+        if not all_server_repos:
+            logging.error("No MCP server configurations found. Exiting.")
             return
 
         # Limit based on the --num-repos argument
         num_to_process = args.num_repos
-        # Removed slicing: json_files_to_process = all_json_files[:num_to_process]
-        logging.info(f"Found [{len(all_json_files)}] JSON files. Will process up to [{num_to_process}] repositories based on --num-repos.")
+        logging.info(f"Found a total of [{len(all_server_repos)}] JSON files from all sources. Will process up to [{num_to_process}] repositories based on --num-repos.")
 
         # Process Repos
         processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
@@ -405,16 +451,16 @@ def main():
         failed_forks = dict() # Dict to collect repositories that failed to fork with reasons
 
         # Iterate over all JSON files until the desired number is processed
-        for json_file_path in all_json_files:
+        for github_url in all_server_repos:
             # Check if we have processed enough repos
             if processed_repo_count >= num_to_process:
                 logging.info(f"Reached processing limit of [{num_to_process}] repositories.")
                 break
 
             # Call the helper function to process this specific repo
-            processed_inc, dependabot_inc, skipped_non_fork, failed_fork = process_repository_from_json(
+            processed_inc, dependabot_inc, skipped_non_fork, failed_fork = process_repository(
                 existing_repos,
-                json_file_path,
+                github_url,
                 gh,
                 args.target_org,
                 existing_repos_properties,
@@ -440,9 +486,8 @@ def main():
         summary_lines = [
             f"**MCP Repository Processing Summary**",
             "Security Scan Results",
-            f"- Total MCP server configs found: `{len(all_json_files)}`",
+            f"- Total MCP server configs found: `{len(all_server_repos)}`",
             f"- Total MCP servers found: `{len(processed_repos)}`",
-            f"- Repos cloned: `{repos_cloned_count}`",
             f"- Processing Limit (--num-repos): `{num_to_process}`",
             f"- Unique source repositories encountered: `{len(processed_repos)}`",
             f"- New repositories successfully processed (forked/found & GHAS enabled): `{processed_repo_count}`",

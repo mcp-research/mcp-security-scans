@@ -4,7 +4,8 @@ This project contains a Python script to automate the process of forking reposit
 
 ## Features
 
-*   Clones or updates the `mcp-agents-ai/mcp-agents-hub` repository locally.
+*   Supports loading MCP server configurations from multiple repository sources.
+*   Currently includes support for the `mcp-agents-ai/mcp-agents-hub` repository.
 *   Parses JSON files from `server/src/data/split` within the cloned repo to find source GitHub repository URLs.
 *   Authenticates with GitHub using a GitHub App.
 *   Forks the identified source repositories into a specified target organization (default: `mcp-research`).
@@ -86,6 +87,55 @@ python -m src.process_mcp_repos --target-org my-testing-org
 ```
 
 The script will log its progress to the console.
+
+### Adding a New MCP Server Source
+
+To add support for a new repository containing MCP server configurations:
+
+1. Create a new function in `src/process_mcp_repos.py` that loads the MCP server list from your repository:
+
+```python
+def load_mcp_servers_from_my_custom_repo() -> list[Path]:
+    """
+    Loads MCP server configurations from your custom repository.
+    
+    Returns:
+        A list of Path objects pointing to files containing server configurations.
+    """
+    repo_url = "https://github.com/your-org/your-repo.git"
+    local_path = Path("./cloned_your_repo")
+    json_dir_in_repo = Path("path/to/configs")
+    
+    # Clone or update the repository
+    newly_cloned = clone_or_update_repo(repo_url, local_path)
+    if newly_cloned:
+        logging.info(f"Custom repository newly cloned to [{local_path}]")
+    else:
+        logging.info(f"Custom repository at [{local_path}] already exists and was updated")
+    
+    # Find configuration files in the repository
+    json_dir = local_path / json_dir_in_repo
+    if not json_dir.is_dir():
+        logging.error(f"Config directory not found: [{json_dir}]")
+        return []
+
+    config_files = sorted(list(json_dir.glob("*.json")))  # Adjust the pattern as needed
+    if not config_files:
+        logging.warning(f"No configuration files found in [{json_dir}]")
+        return []
+    
+    logging.info(f"Found [{len(config_files)}] configuration files in custom repository")
+    return config_files
+```
+
+2. Register the new loader function to the `MCP_SERVER_LOADERS` list:
+
+```python
+# Register the custom loader
+MCP_SERVER_LOADERS.append(load_mcp_servers_from_my_custom_repo)
+```
+
+The main function will automatically use all registered loaders to collect MCP server configurations.
 
 ## Testing
 ```bash
