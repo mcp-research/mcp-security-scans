@@ -100,7 +100,7 @@ This repository is configured to work with GitHub Copilot Coding Agent for faste
 
 1. Create a new branch for your changes
 2. Create a Pull Request with that branch
-3. Add the `copilot-agent` label to the PR
-4. GitHub will automatically run the Copilot Coding Agent in a well-provisioned environment
+3. Add the `copilot` label to the PR
+4. GitHub will automatically run the Copilot Coding Agent with the pre-configured environment
 
-The workflow configuration for the Copilot Coding Agent is located in `.github/workflows/copilot-agent.yml`.
+The setup configuration for the Copilot Coding Agent is located in `.github/workflows/copilot-setup-steps.yml`.
