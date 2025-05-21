@@ -486,8 +486,7 @@ def main():
         summary_lines = [
             f"**MCP Repository Processing Summary**",
             "Security Scan Results",
-            f"- Total MCP server configs found: `{len(all_server_repos
-)}`",
+            f"- Total MCP server configs found: `{len(all_server_repos)}`",
             f"- Total MCP servers found: `{len(processed_repos)}`",
             f"- Processing Limit (--num-repos): `{num_to_process}`",
             f"- Unique source repositories encountered: `{len(processed_repos)}`",
