@@ -1,0 +1,87 @@
+name: Create Repository Properties
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_org:
+        description: 'Target GitHub organization to create properties for'
+        required: false
+        default: 'mcp-research'
+  push:
+    paths:
+      - create_repo_properties.sh
+      - .github/workflows/create_repo_properties.yml
+
+jobs:
+  create_properties:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # For checkout action
+    env:
+      DEFAULT_TARGET_ORG: 'mcp-research'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # Cache the Python package installer
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install githubkit
+          # Setup the project so that the src module is accessible
+          pip install -e .
+
+      - name: Generate GitHub token and run script
+        env:
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          TARGET_ORG: ${{ github.event.inputs.target_org || env.DEFAULT_TARGET_ORG }}
+        run: |
+          # Make scripts executable
+          chmod +x create_repo_properties.sh
+
+          # Create and run Python script to get the token
+          cat << 'EOF' > get_token.py
+          import os
+          import sys
+          import logging
+          from src.github import get_github_client, get_installation_github_client
+
+          logging.basicConfig(level=logging.INFO)
+
+          app_id = os.environ['GH_APP_ID']
+          private_key = os.environ['GH_APP_PRIVATE_KEY']
+          target_org = os.environ['TARGET_ORG']
+
+          try:
+              # Get the GitHub App client
+              gh_app = get_github_client(app_id, private_key)
+              
+              # Get the installation client and auth
+              _, installation_auth = get_installation_github_client(gh_app, target_org)
+              
+              # Print the token so we can capture it in the shell
+              print(installation_auth.token)
+          except Exception as e:
+              logging.error(f"Failed to generate token: [{e}]")
+              sys.exit(1)
+          EOF
+
+          # Run the Python script and capture the token
+          TOKEN=$(python get_token.py)
+          if [ $? -ne 0 ]; then
+              echo "Failed to generate GitHub token"
+              exit 1
+          fi
+
+          echo "Successfully generated GitHub token with length: [${#TOKEN}]"
+          
+          # Run the repository properties creation script
+          ./create_repo_properties.sh "$TARGET_ORG" "$TOKEN"
+        

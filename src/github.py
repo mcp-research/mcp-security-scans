@@ -26,25 +26,36 @@ def get_github_client(app_id: str, private_key: str) -> GitHub:
         logging.error(f"Failed to authenticate GitHub App: [{e}]")
         raise
 
-def get_installation_github_client(gh_app: GitHub, target_org: str) -> GitHub:
-    """Gets a GitHub client authenticated for a specific installation."""
+def get_installation_github_client(
+    gh_app: GitHub, target_org: str
+) -> tuple[GitHub, Any]:
+    """Gets a GitHub client authenticated for a specific installation.
+
+    Returns:
+        tuple: A tuple containing (GitHub client, installation auth object)
+    """
     try:
         # Find the installation ID for the target organization
-        installations = gh_app.apps.list_installations().json()
+        installations = gh_app.rest.apps.list_installations().json()
         installation_id = None
         for inst in installations:
-            if inst.account and inst.account.login == target_org:
-                installation_id = inst.id
+            if inst.get("account", {}).get("login") == target_org:
+                installation_id = inst["id"]
                 break
 
         if not installation_id:
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")
 
-        # Create a client authenticated for the installation
-        installation_auth = gh_app.get_installation_auth(installation_id)
-        gh_inst = GitHub(installation_auth)
+        # Create an installation access token
+        token_response = gh_app.rest.apps.create_installation_access_token(
+            installation_id=installation_id
+        )
+        token_data = token_response.parsed_data
+
+        # Create a new client with the token
+        gh_inst = GitHub(auth=token_data.token)
         logging.info(f"GitHub client authenticated successfully for installation ID [{installation_id}] ([{target_org}]).")
-        return gh_inst
+        return gh_inst, token_data
     except Exception as e:
         logging.error(f"Failed to get installation client for [{target_org}]: [{e}]")
         raise
