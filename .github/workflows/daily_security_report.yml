@@ -32,7 +32,7 @@ jobs:
       env:
         GH_APP_ID: ${{ vars.GH_APP_ID }}
         GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-      run: python src/report.py
+      run: python -m src.report
     
     - name: Upload report artifacts
       uses: actions/upload-artifact@v4

@@ -104,6 +104,7 @@ create_property "CodeAlerts_Low" "Number of low code scanning alerts" "string" "
 
 # Secret scanning alerts (total only, no severity levels)
 create_property "SecretAlerts_Total" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "SecretAlerts_By_Type" "Number of secret scanning alerts by type" "string" "false" "" "" "org_and_repo_actors"
 
 # Dependency alerts by severity
 create_property "DependencyAlerts_Critical" "Number of critical dependency alerts" "string" "false" "0" "" "org_and_repo_actors"

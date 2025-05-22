@@ -20,6 +20,10 @@ on:
   schedule:
     - cron: '0 5 * * *' # Run every day at 5 AM UTC
 
+  pull_request:
+    branches:
+      - main
+
   push:
     paths:
       - src/analyze.py
@@ -27,6 +31,10 @@ on:
 
 jobs:
   analyze_repos:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     runs-on: ubuntu-latest
     permissions:
       contents: read # For the checkout action

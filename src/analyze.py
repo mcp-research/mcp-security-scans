@@ -44,6 +44,7 @@ CODE_ALERTS_LOW = "CodeAlerts_Low"
 
 # Property names for secret scanning alerts (no standard severity levels)
 SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
+SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
@@ -124,7 +125,7 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
 
 def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
-    Gets the count of secret scanning alerts for a repository.
+    Gets the count of secret scanning alerts for a repository, categorized by type.
     
     Args:
         gh: Authenticated GitHub client instance.
@@ -132,10 +133,13 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]
         repo: Repository name.
         
     Returns:
-        Dictionary with count of open secret scanning alerts.
+        Dictionary with count of open secret scanning alerts, both total and by type.
     """
     # Initialize result dictionary
-    result = {"total": 0}
+    result = {
+        "total": 0,
+        "types": {}
+    }
     
     try:
         # Get secret scanning alerts with state=open
@@ -148,7 +152,18 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]
         
         result["total"] = len(alerts)
         
+        # Count alerts by secret type
+        for alert in alerts:
+            secret_type = alert.secret_type_display_name or alert.secret_type or "Unknown"
+            if secret_type in result["types"]:
+                result["types"][secret_type] += 1
+            else:
+                result["types"][secret_type] = 1
+        
         logging.info(f"Found [{result['total']}] open secret scanning alerts for [{owner}/{repo}]")
+        if result["total"] > 0:
+            type_counts = ", ".join([f"{t}: {c}" for t, c in result["types"].items()])
+            logging.info(f"Secret types for [{owner}/{repo}]: {type_counts}")
         return result
         
     except RequestFailed as e:
@@ -321,6 +336,8 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             
             # Secret scanning alerts (only total for now)
             SECRET_ALERTS_TOTAL: secret_alerts["total"],
+            # Store secret types as a JSON string
+            SECRET_ALERTS_BY_TYPE: json.dumps(secret_alerts["types"]) if secret_alerts["types"] else "{}",
             
             # Dependency scanning alerts by severity
             DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
@@ -538,35 +555,34 @@ def main():
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
-
-            # temporarily scan all repos for mcp configs, as we did not do so before
-            # this code needs to move in the if success block later on
-            # locate the default branch of the fork
-            fork_default_branch = repo.default_branch if repo.fork else None
-
-            # clone the repo to a temp directory
-            local_repo_path = Path(f"tmp/{repo.name}")
-            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
-
-            # Scan repository for MCP composition
-            composition = scan_repo_for_mcp_composition(local_repo_path)
-            if composition:
-                logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
-                try:
-                    runtime = get_composition_info(composition)
-                    if runtime:
-                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
-                    else:
-                        # Track failed analysis where get_composition_info returns empty dict
-                        logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
-                        failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
-                except Exception as e:
-                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
-                    failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
-                    runtime = {}
             
             if success:
                 scanned_repos += 1
+
+                # locate the default branch of the fork
+                fork_default_branch = repo.default_branch if repo.fork else None
+
+                # clone the repo to a temp directory
+                local_repo_path = Path(f"tmp/{repo.name}")
+                clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+
+                # Scan repository for MCP composition
+                composition = scan_repo_for_mcp_composition(local_repo_path)
+                if composition:
+                    logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
+                    try:
+                        runtime = get_composition_info(composition)
+                        if runtime:
+                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                        else:
+                            # Track failed analysis where get_composition_info returns empty dict
+                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
+                            failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
+                    except Exception as e:
+                        logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                        failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
+                        runtime = {}
+
                 # Add alerts to totals if scan was successful
                 total_code_alerts += code_alerts["total"]
                 total_secret_alerts += secret_alerts["total"]
