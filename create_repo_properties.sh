@@ -112,4 +112,7 @@ create_property "DependencyAlerts_High" "Number of high dependency alerts" "stri
 create_property "DependencyAlerts_Moderate" "Number of moderate dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 create_property "DependencyAlerts_Low" "Number of low dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 
+# MCP server info
+create_property "MCP_Server_Runtime" "Runtime of the MCP Server" "string" "false" "" "" "org_and_repo_actors"
+
 echo "Repository properties creation completed."
