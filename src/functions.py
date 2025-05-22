@@ -30,10 +30,10 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
     try:
         last_scanned_time = datetime.datetime.fromisoformat(last_scanned)
         if datetime.datetime.now() - last_scanned_time > datetime.timedelta(days=days_threshold):
-            logging.info(f"Repository was last scanned more than {days_threshold} days ago. Scanning...")
+            logging.info(f"Repository was last scanned on GHAS alerts more than {days_threshold} days ago. Scanning...")
             return True
         else:
-            logging.info(f"Repository was scanned within the last {days_threshold} days. Skipping...")
+            logging.info(f"Repository was scanned on GHAS alerts within the last {days_threshold} days. Skipping...")
             return False
     except (ValueError, TypeError):
         logging.warning(f"Invalid timestamp format: {last_scanned}. Scanning...")

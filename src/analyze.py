@@ -293,7 +293,7 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
                     # Extract properties from the custom properties object
                     for prop in repo_properties.properties:
                         properties[prop.property_name] = prop.value
-                    logging.info(f"Found existing custom properties for {owner}/{repo_name}")
+                    logging.info(f"Found [{len(properties)}] existing custom properties for {owner}/{repo_name}")
                     break
                     
             # If no properties found in the cached list, fetch directly
@@ -304,7 +304,10 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
                 )
                 props = response.json()
                 for prop in props:
-                    properties[prop["property_name"]] = prop["value"]
+                    try:
+                        properties[prop["property_name"]] = prop["value"]
+                    except KeyError:
+                        logging.warning(f"Missing property name or value in custom properties: {prop}")
                 logging.info(f"Fetched custom properties for {owner}/{repo_name}")
         except Exception as prop_error:
             logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
@@ -484,6 +487,8 @@ def check_rescan_needed(gh: Any, repo: FullRepository, existing_repos_properties
     owner = repo.owner.login if repo.owner else TARGET_ORG
     repo_name = repo.name
     rescan_needed = False
+
+    logging.info(f"Checking if repository [{owner}/{repo_name}] needs to be rescanned...")
     
     # Get existing properties - fixed to handle the custom properties structure correctly
     properties = {}
@@ -493,10 +498,23 @@ def check_rescan_needed(gh: Any, repo: FullRepository, existing_repos_properties
             if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
                 # Extract properties from the custom properties object
                 for prop in repo_properties.properties:
-                    properties[prop.property_name] = "MCP_Server_Runtime"
-                    logging.info(f"Found existing custom properties for {owner}/{repo_name}")
+                    properties[prop.property_name] = prop.value
+                break
+
+                logging.info(f"Found [{len(properties)}] existing custom properties for {owner}/{repo_name}")
+        
+        propName = "MCP_Server_Runtime"
+        logging.info(f"Checking for existing custom property '{propName}' for [{owner}/{repo_name}]")
+        for prop in properties:
+            if prop == propName:
+                prop_value = properties[propName]
+                logging.info(f"Found existing custom property '{propName}' for [{owner}/{repo_name}] with value: [{prop_value}]")
+                if not prop_value:
                     rescan_needed = True
-                    break
+                else:
+                    if prop_value == "unknown" or prop_value == "":
+                        rescan_needed = True
+                break
 
         return rescan_needed
     except Exception as prop_error:
