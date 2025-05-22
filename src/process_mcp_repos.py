@@ -82,7 +82,7 @@ def ensure_repository_fork(
     target_org: str,
     target_repo_name: str,
     source_repo_full_name: str
-) -> tuple[bool, bool]:
+) -> tuple[bool, bool, str]:
     """
     Checks if a fork exists in the target organization, creates it if not.
 
@@ -96,12 +96,14 @@ def ensure_repository_fork(
         source_repo_full_name: The full name of the source repository (owner/repo).
 
     Returns:
-        A tuple (fork_exists, fork_skipped):
+        A tuple (fork_exists, fork_skipped, failure_reason):
         - fork_exists: True if the fork exists or was successfully created, False otherwise.
         - fork_skipped: True if a repository with the target name exists but is not the correct fork, False otherwise.
+        - failure_reason: A string describing the reason for fork failure, empty if no failure occurred.
     """
     fork_exists = False
     fork_skipped = False
+    failure_reason = ""  # Initialize failure reason string
     try:
         logging.info(f"Checking if fork exists for [{target_repo_name}] in [{target_org}]...")
         # check if the fork already exists in the exising_repos list
@@ -133,24 +135,29 @@ def ensure_repository_fork(
             except RequestFailed as fork_error:
                 # handle 404 specifically if the source repo doesn't exist or isn't accessible
                 if fork_error.response.status_code == 404:
-                     logging.error(f"Could not find source repository [{source_repo_full_name}] to fork.")
+                    failure_reason = "Source repository not found or not accessible"
+                    logging.error(f"Could not find source repository [{source_repo_full_name}] to fork.")
                 else:
+                    failure_reason = f"GitHub API error: {fork_error}"
                     handle_github_api_error(fork_error, f"forking [{source_repo_full_name}] to [{target_org}]")
                 # fork creation failed
                 fork_exists = False
             except Exception as fork_exc:
-                 logging.error(f"Unexpected error forking [{source_repo_full_name}]: [{fork_exc}]")
-                 # fork creation failed
-                 fork_exists = False
+                failure_reason = f"Unexpected error: {fork_exc}"
+                logging.error(f"Unexpected error forking [{source_repo_full_name}]: [{fork_exc}]")
+                # fork creation failed
+                fork_exists = False
 
     except RequestFailed as e:
+        failure_reason = f"Error checking or creating fork: {e}"
         logging.error(f"Error checking or creating fork for [{source_repo_full_name}]: [{e}]")
         fork_exists = False
     except Exception as e:
+        failure_reason = f"Unexpected error: {e}"
         logging.error(f"An unexpected error occurred checking or creating fork for [{source_repo_full_name}]: [{e}]")
         fork_exists = False
 
-    return fork_exists, fork_skipped
+    return fork_exists, fork_skipped, failure_reason
 
 def get_target_repo_name(source_owner: str, source_repo: str) -> str:
     """
@@ -309,7 +316,7 @@ def process_repository(
         target_repo_name = get_target_repo_name(source_owner, source_repo)
 
         # Check if fork exists or create it
-        fork_exists, fork_skipped_flag = ensure_repository_fork(
+        fork_exists, fork_skipped_flag, failure_reason = ensure_repository_fork(
             existing_repos, gh, source_owner, source_repo, target_org, target_repo_name, source_repo_full_name
         )
 
@@ -326,8 +333,8 @@ def process_repository(
                 # Fork creation/check genuinely failed.
                 failed_fork = True
                 logging.error(f"Failed to ensure fork exists for [{source_repo_full_name}]. Skipping further processing.")
-                # Add to failed_forks set
-                failed_forks[source_repo_full_name] = "Fork creation/check failed"
+                # Add to failed_forks with the specific reason
+                failed_forks[source_repo_full_name] = failure_reason or "Fork creation/check failed"
                 # Don't add to processed_repos because we might want to retry later
                 return 0, 0, False, failed_fork # Return failed status
 
