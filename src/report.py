@@ -340,6 +340,8 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         if stats['secret_alerts_by_type']:
             for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
                 f.write(f"- {secret_type}: {count}\n")
+        elif stats['total_secret_alerts'] > 0:
+            f.write("Secrets found but types not categorized.\n")
         else:
             f.write("No secret scanning alerts found.\n")
         f.write("\n")
@@ -416,10 +418,14 @@ def print_console_summary(stats: Dict) -> None:
     print(f"  - Low: {stats['dependency_alerts_by_severity']['low']}")
     
     # Print secret type breakdown
+    print("\nSecret Scanning Alerts by Type:")
     if stats['secret_alerts_by_type']:
-        print("\nSecret Scanning Alerts by Type:")
         for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
             print(f"  - {secret_type}: {count}")
+    elif stats['total_secret_alerts'] > 0:
+        print("  Secrets found but types not categorized.")
+    else:
+        print("  No secret scanning alerts found.")
     
     # Calculate percentages if possible
     if stats['total_repositories'] > 0:
