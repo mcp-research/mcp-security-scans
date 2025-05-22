@@ -35,6 +35,7 @@ CODE_ALERTS_LOW = "CodeAlerts_Low"
 
 # Property names for secret scanning alerts (no standard severity levels)
 SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
+SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
@@ -133,6 +134,9 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'low': 0
     }
     
+    # Dictionary to track secret alerts by type
+    secret_alerts_by_type = defaultdict(int)
+    
     # Dictionary to track alerts by date
     alerts_by_date = defaultdict(lambda: {
         'code': 0,
@@ -184,6 +188,16 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             dep_high = safe_int_convert(properties.get(DEPENDENCY_ALERTS_HIGH, 0))
             dep_moderate = safe_int_convert(properties.get(DEPENDENCY_ALERTS_MODERATE, 0))
             dep_low = safe_int_convert(properties.get(DEPENDENCY_ALERTS_LOW, 0))
+            
+            # Get secret alert types
+            secret_types_json = properties.get(SECRET_ALERTS_BY_TYPE, "{}")
+            try:
+                secret_types = json.loads(secret_types_json)
+                # Add to type totals
+                for secret_type, count in secret_types.items():
+                    secret_alerts_by_type[secret_type] += safe_int_convert(count)
+            except json.JSONDecodeError:
+                logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
             
             # Add to totals
             total_code_alerts += code_alerts
@@ -254,6 +268,8 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         # Add severity breakdowns
         'code_alerts_by_severity': code_alerts_by_severity,
         'dependency_alerts_by_severity': dependency_alerts_by_severity,
+        # Add secret type breakdown
+        'secret_alerts_by_type': dict(secret_alerts_by_type),
         'alerts_by_date': dict(alerts_by_date),
         'repos_alerts': repos_alerts,
         'report_date': datetime.datetime.now().isoformat(),
@@ -318,6 +334,15 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         f.write(f"- High: {stats['dependency_alerts_by_severity']['high']}\n")
         f.write(f"- Moderate: {stats['dependency_alerts_by_severity']['moderate']}\n")
         f.write(f"- Low: {stats['dependency_alerts_by_severity']['low']}\n\n")
+        
+        # Add section for secret alerts by type
+        f.write("## Secret Scanning Alerts by Type\n\n")
+        if stats['secret_alerts_by_type']:
+            for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
+                f.write(f"- {secret_type}: {count}\n")
+        else:
+            f.write("No secret scanning alerts found.\n")
+        f.write("\n")
         
         # Coverage statistics
         if stats['total_repositories'] > 0:
@@ -389,6 +414,12 @@ def print_console_summary(stats: Dict) -> None:
     print(f"  - High: {stats['dependency_alerts_by_severity']['high']}")
     print(f"  - Moderate: {stats['dependency_alerts_by_severity']['moderate']}")
     print(f"  - Low: {stats['dependency_alerts_by_severity']['low']}")
+    
+    # Print secret type breakdown
+    if stats['secret_alerts_by_type']:
+        print("\nSecret Scanning Alerts by Type:")
+        for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {secret_type}: {count}")
     
     # Calculate percentages if possible
     if stats['total_repositories'] > 0:

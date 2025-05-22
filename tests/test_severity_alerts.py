@@ -98,10 +98,14 @@ class TestSeverityAlerts(unittest.TestCase):
         self.assertEqual(result["low"], 3)     # low + warning + note
         
     def test_secret_scanning_alerts(self):
-        """Test that secret scanning alerts are counted."""
+        """Test that secret scanning alerts are counted and categorized by type."""
         # Create mock GitHub client and response
         mock_gh = MagicMock()
-        mock_alerts = [MagicMock(), MagicMock(), MagicMock()]
+        mock_alerts = [
+            MagicMock(secret_type="github_personal_access_token", secret_type_display_name="GitHub Personal Access Token"),
+            MagicMock(secret_type="azure_storage_account_key", secret_type_display_name="Azure Storage Account Key"),
+            MagicMock(secret_type="github_personal_access_token", secret_type_display_name="GitHub Personal Access Token"),
+        ]
         
         # Set up the mock to return our list
         mock_gh.rest.paginate.return_value = mock_alerts
@@ -111,6 +115,9 @@ class TestSeverityAlerts(unittest.TestCase):
         
         # Verify the results
         self.assertEqual(result["total"], 3)
+        self.assertEqual(len(result["types"]), 2, "Should have two different secret types")
+        self.assertEqual(result["types"]["GitHub Personal Access Token"], 2, "Should have 2 GitHub PAT alerts")
+        self.assertEqual(result["types"]["Azure Storage Account Key"], 1, "Should have 1 Azure Storage key alert")
 
 if __name__ == "__main__":
     unittest.main()
