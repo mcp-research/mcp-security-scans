@@ -555,35 +555,34 @@ def main():
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
-
-            # temporarily scan all repos for mcp configs, as we did not do so before
-            # this code needs to move in the if success block later on
-            # locate the default branch of the fork
-            fork_default_branch = repo.default_branch if repo.fork else None
-
-            # clone the repo to a temp directory
-            local_repo_path = Path(f"tmp/{repo.name}")
-            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
-
-            # Scan repository for MCP composition
-            composition = scan_repo_for_mcp_composition(local_repo_path)
-            if composition:
-                logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
-                try:
-                    runtime = get_composition_info(composition)
-                    if runtime:
-                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
-                    else:
-                        # Track failed analysis where get_composition_info returns empty dict
-                        logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
-                        failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
-                except Exception as e:
-                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
-                    failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
-                    runtime = {}
             
             if success:
                 scanned_repos += 1
+
+                # locate the default branch of the fork
+                fork_default_branch = repo.default_branch if repo.fork else None
+
+                # clone the repo to a temp directory
+                local_repo_path = Path(f"tmp/{repo.name}")
+                clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+
+                # Scan repository for MCP composition
+                composition = scan_repo_for_mcp_composition(local_repo_path)
+                if composition:
+                    logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
+                    try:
+                        runtime = get_composition_info(composition)
+                        if runtime:
+                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                        else:
+                            # Track failed analysis where get_composition_info returns empty dict
+                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
+                            failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
+                    except Exception as e:
+                        logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                        failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
+                        runtime = {}
+
                 # Add alerts to totals if scan was successful
                 total_code_alerts += code_alerts["total"]
                 total_secret_alerts += secret_alerts["total"]
