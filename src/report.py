@@ -11,7 +11,7 @@ from collections import defaultdict
 from dotenv import load_dotenv
 
 # Import the local functions
-from github import (
+from .github import (
     get_github_client, list_all_repository_properties_for_org,
     show_rate_limit
 )
