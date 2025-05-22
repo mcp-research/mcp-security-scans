@@ -476,6 +476,34 @@ def get_composition_info(composition: Dict) -> Dict:
         return {"server": server_name, "server_type": server_type, "command": command, "args": args}
     return {}
 
+def check_rescan_needed(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> bool:
+    """
+    Check if a repository needs to be rescanned based on MCP server info.
+    Returns True if a rescan is needed, False otherwise.
+    """
+    owner = repo.owner.login if repo.owner else TARGET_ORG
+    repo_name = repo.name
+    rescan_needed = False
+    
+    # Get existing properties - fixed to handle the custom properties structure correctly
+    properties = {}
+    try:
+        # Search in the existing properties list to see if the MCP_Server_Runtime has been filled already
+        for repo_properties in existing_repos_properties:
+            if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
+                # Extract properties from the custom properties object
+                for prop in repo_properties.properties:
+                    properties[prop.property_name] = "MCP_Server_Runtime"
+                    logging.info(f"Found existing custom properties for {owner}/{repo_name}")
+                    rescan_needed = True
+                    break
+
+        return rescan_needed
+    except Exception as prop_error:
+        logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
+        return False
+    
+
 def main():
     """Main execution function."""
     start_time = datetime.datetime.now()
@@ -555,8 +583,12 @@ def main():
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
+            rescan_needed = False
+            if not success: 
+                # check if there is a reason to rescan the repo
+                rescan_needed = check_rescan_needed(gh, repo, existing_repos_properties)
             
-            if success:
+            if success or rescan_needed:
                 scanned_repos += 1
 
                 # locate the default branch of the fork
@@ -574,6 +606,12 @@ def main():
                         runtime = get_composition_info(composition)
                         if runtime:
                             logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                            mcp_server_type = runtime.get("server_type")
+                            if mcp_server_type: 
+                                properties_to_update = {
+                                    "MCP_Server_Runtime": mcp_server_type
+                                }
+                                update_repository_properties(gh, repo.owner.login, repo.name, properties_to_update)                            
                         else:
                             # Track failed analysis where get_composition_info returns empty dict
                             logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
