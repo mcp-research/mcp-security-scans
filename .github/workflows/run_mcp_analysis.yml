@@ -31,6 +31,10 @@ on:
 
 jobs:
   analyze_repos:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     runs-on: ubuntu-latest
     permissions:
       contents: read # For the checkout action
