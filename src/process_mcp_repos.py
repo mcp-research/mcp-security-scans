@@ -11,8 +11,8 @@ from typing import Any # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
-from github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
-from functions import should_scan_repository
+from src.github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
+from src.functions import should_scan_repository
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +28,6 @@ TARGET_ORG = "mcp-research" # The organization to fork into
 # GitHub MCP Server constants
 GITHUB_MCP_SERVER_REPO_URL = "https://github.com/github/github-mcp-server.git"
 GITHUB_MCP_SERVER_LOCAL_PATH = Path("./cloned_github_mcp_server")
-GITHUB_MCP_SERVER_CONFIG_DIR_IN_REPO = Path("examples")
 
 # Collection of MCP server list loader functions
 MCP_SERVER_LOADERS = []
@@ -83,65 +82,28 @@ def load_mcp_servers_from_github_mcp_server() -> list[Path]:
     """
     Loads MCP server configurations from the GitHub MCP server repository.
     
-    This function clones or updates the GitHub MCP server repository and finds
-    all JSON files in the specified directory within the repository.
+    This function clones or updates the GitHub MCP server repository and 
+    returns the GitHub MCP server repository URL so it can be forked and analyzed.
     
     Returns:
-        A list of Path objects pointing to the JSON files containing server configurations.
-        Returns an empty list if no files are found or if there's an error.
+        A list containing the GitHub MCP server repository URL.
+        Returns an empty list if there's an error cloning the repository.
     """
     # Clone or Update GitHub MCP server repo
-    newly_cloned = clone_or_update_repo(GITHUB_MCP_SERVER_REPO_URL, GITHUB_MCP_SERVER_LOCAL_PATH)
-    if newly_cloned:
-        logging.info(f"GitHub MCP Server repository newly cloned to [{GITHUB_MCP_SERVER_LOCAL_PATH}]")
-    else:
-        logging.info(f"GitHub MCP Server repository at [{GITHUB_MCP_SERVER_LOCAL_PATH}] already exists and was updated")
+    try:
+        newly_cloned = clone_or_update_repo(GITHUB_MCP_SERVER_REPO_URL, GITHUB_MCP_SERVER_LOCAL_PATH)
+        if newly_cloned:
+            logging.info(f"GitHub MCP Server repository newly cloned to [{GITHUB_MCP_SERVER_LOCAL_PATH}]")
+        else:
+            logging.info(f"GitHub MCP Server repository at [{GITHUB_MCP_SERVER_LOCAL_PATH}] already exists and was updated")
+        
+        # Just return the GitHub MCP server repository URL directly
+        # since we're only interested in forking the repo, not parsing configs
+        return [GITHUB_MCP_SERVER_REPO_URL]
     
-    # Find JSON files in the GitHub MCP Server repo
-    json_dir = GITHUB_MCP_SERVER_LOCAL_PATH / GITHUB_MCP_SERVER_CONFIG_DIR_IN_REPO
-    if not json_dir.is_dir():
-        logging.error(f"JSON directory not found: [{json_dir}]")
+    except Exception as e:
+        logging.error(f"Error processing GitHub MCP server repository: [{e}]")
         return []
-
-    # Look for JSON files (.json) and markdown files (.md) that might contain JSON configurations
-    server_repo_json = sorted(list(json_dir.glob("*.json")))
-    server_repo_md = sorted(list(json_dir.glob("*.md")))
-    server_repo = server_repo_json + server_repo_md
-    
-    if not server_repo:
-        logging.warning(f"No configuration files found in [{json_dir}]")
-        return []
-    
-    logging.info(f"Found [{len(server_repo)}] configuration files in GitHub MCP Server repository")
-
-    all_server_repos = []
-    for config_file_path in server_repo:
-        try:
-            # For markdown files, extract JSON code blocks
-            if config_file_path.suffix.lower() == ".md":
-                with open(config_file_path, 'r') as f:
-                    content = f.read()
-                    # Extract JSON from markdown code blocks
-                    import re
-                    json_blocks = re.findall(r'```json\s*([\s\S]*?)\s*```', content)
-                    for json_block in json_blocks:
-                        try:
-                            data = json.loads(json_block)
-                            # The GitHub MCP server configuration doesn't have githubUrl
-                            # Instead, we add the GitHub MCP server to the list directly
-                            all_server_repos.append("https://github.com/github/github-mcp-server.git")
-                        except json.JSONDecodeError:
-                            logging.warning(f"Skipping invalid JSON block in [{config_file_path.name}]")
-            # For JSON files, load directly
-            else:
-                with open(config_file_path, 'r') as f:
-                    data = json.load(f)
-                    # For GitHub MCP server, add the repository directly
-                    all_server_repos.append("https://github.com/github/github-mcp-server.git")
-        except Exception as e:
-            logging.error(f"Error processing file [{config_file_path.name}]: [{e}]")
-                
-    return all_server_repos
 
 # Register the GitHub MCP Server loader
 MCP_SERVER_LOADERS.append(load_mcp_servers_from_github_mcp_server)

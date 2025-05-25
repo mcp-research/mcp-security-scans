@@ -5,8 +5,10 @@ This project contains a Python script to automate the process of forking reposit
 ## Features
 
 *   Supports loading MCP server configurations from multiple repository sources.
-*   Currently includes support for the `mcp-agents-ai/mcp-agents-hub` repository.
-*   Parses JSON files from `server/src/data/split` within the cloned repo to find source GitHub repository URLs.
+*   Currently includes support for:
+    *   `mcp-agents-ai/mcp-agents-hub` repository - Parses JSON files from `server/src/data/split` to find GitHub repository URLs
+    *   `github/github-mcp-server` repository - Includes the official GitHub MCP server
+*   Authenticates with GitHub using a GitHub App.
 *   Authenticates with GitHub using a GitHub App.
 *   Forks the identified source repositories into a specified target organization (default: `mcp-research`).
 *   Checks if a fork already exists before attempting to create one.
@@ -136,6 +138,33 @@ MCP_SERVER_LOADERS.append(load_mcp_servers_from_my_custom_repo)
 ```
 
 The main function will automatically use all registered loaders to collect MCP server configurations.
+
+### Using the GitHub MCP Server
+
+The GitHub MCP Server is included in this project's scans. To use it in your own coding agent runtime, you need to configure it with the following JSON:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+For more information on configuring the GitHub MCP Server, see the [official repository](https://github.com/github/github-mcp-server).
 
 ## GitHub Workflows
 
