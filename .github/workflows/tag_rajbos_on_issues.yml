@@ -1,0 +1,31 @@
+name: Tag @rajbos on New Issues
+
+# This workflow automatically tags @rajbos on new issues that were not created by @rajbos
+# to ensure timely attention to reported issues in this repository.
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  tag-rajbos:
+    # Only run this job if we're in the actual repository context, not in forks
+    if: github.repository == 'mcp-research/mcp-security-scans'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Check issue creator and tag @rajbos
+        if: github.event.issue.user.login != 'rajbos'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '@rajbos A new issue was created that might need your attention.'
+            });
+            console.log('Tagged @rajbos on issue #' + context.issue.number);
