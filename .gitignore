@@ -13,8 +13,9 @@ env/
 # Git
 .git
 
-# Cloned Repo
+# Cloned Repos
 cloned_mcp_agents_hub/
+cloned_github_mcp_server/
 tmp/
 
 # VS Code
