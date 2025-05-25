@@ -704,9 +704,7 @@ def main():
 ```
                                 """
                                 
-                                # Create the issue in the target organization's repo where the failure occurred
-                                # instead of hardcoding "mcp-security-scans"
-                                create_issue(token_auth_gh, args.target_org, repo.name, 
+                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
                                            issue_title, issue_body, ["analysis-failure"])
                         else:
                             logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
