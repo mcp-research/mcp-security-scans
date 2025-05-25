@@ -484,3 +484,56 @@ def show_rate_limit(gh: GitHub):
         handle_github_api_error(e, "fetching rate limit status")
     except Exception as e:
         logging.error(f"An unexpected error occurred while fetching rate limit status: [{e}]")
+
+def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, labels: list[str] = []) -> bool:
+    """Creates a GitHub issue if a similar issue does not already exist.
+    
+    Args:
+        gh: Authenticated GitHub client instance.
+        owner: Repository owner (organization or user).
+        repo: Repository name.
+        title: Issue title.
+        body: Issue body/content.
+        labels: List of labels to apply to the issue.
+        
+    Returns:
+        True if issue was created or already exists, False if creation failed.
+    """
+    try:
+        # Check for existing issues with similar title and the same label
+        if "analysis-failure" in labels:
+            # Search for existing issues with the same error type in the title
+            search_query = f"repo:{owner}/{repo} is:issue is:open label:analysis-failure in:title {title}"
+            logging.info(f"Searching for existing issues using query: [{search_query}]")
+            
+            try:
+                search_results = gh.rest.search.issues_and_pull_requests(q=search_query).json()
+                if search_results.get("total_count", 0) > 0:
+                    logging.info(f"Found existing issue for this analysis failure in [{owner}/{repo}]. Skipping issue creation.")
+                    return True  # Issue already exists
+            except Exception as search_error:
+                logging.warning(f"Error searching for existing issues in [{owner}/{repo}]: [{search_error}]. Will attempt to create issue anyway.")
+
+        # Create the issue
+        response = gh.rest.issues.create(
+            owner=owner,
+            repo=repo,
+            title=title,
+            body=body,
+            labels=labels
+        )
+        
+        if response.status_code in (201, 200):
+            issue_number = response.json().get("number")
+            logging.info(f"Successfully created issue #{issue_number} in [{owner}/{repo}]")
+            return True
+        else:
+            logging.error(f"Unexpected response when creating issue in [{owner}/{repo}]: Status code [{response.status_code}]")
+            return False
+            
+    except RequestFailed as e:
+        handle_github_api_error(e, f"creating issue in [{owner}/{repo}]")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error creating issue in [{owner}/{repo}]: [{e}]")
+        return False

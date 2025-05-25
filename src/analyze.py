@@ -18,7 +18,7 @@ from .github import (
     get_github_client, list_all_repositories_for_org,
     list_all_repository_properties_for_org, get_repository_properties,
     update_repository_properties, show_rate_limit, handle_github_api_error,
-    clone_repository
+    clone_repository, create_issue
 )
 from .functions import should_scan_repository
 
@@ -358,12 +358,26 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, code_alerts, secret_alerts, dependency_alerts
 
-def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
+def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict], Optional[Dict]]:
+    """
+    Scans a repository for MCP composition configuration.
+    
+    Args:
+        local_repo_path: Path to the local repository.
+        
+    Returns:
+        A tuple containing:
+        - The parsed MCP composition as a Dict or None if not found
+        - A Dict with error details if an error occurred, or None if successful
+          Error details include: repo_path, filename, json_config, error_message
+    """
     # scan the repo to find a txt file that defines "mcpServers": {
 
     # find any file that has either '"mcpServers":{' or '"mcp":{"servers":{' in it.
     # search without spaces in the file content
     mcp_composition = None
+    error_details = None
+    
     for root, dirs, files in os.walk(local_repo_path):
         for file in files:
             file_path = os.path.join(root, file)
@@ -396,17 +410,17 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                 logging.error(f"Error reading file [{file_path}]: {e}")
                 continue # Skip to the next file
             
-            # strip all spaces/tabs/newlines from the content
-            content = content.replace(" ", "").replace("\n", "").replace("\t", "")
-            if '"mcpServers":{' in content or '"mcp":{"servers":{' in content:
+            # strip all spaces/tabs/newlines from the content for searching
+            stripped_content = content.replace(" ", "").replace("\n", "").replace("\t", "")
+            if '"mcpServers":{' in stripped_content or '"mcp":{"servers":{' in stripped_content:
                 # grab the json string that contains the mcpServers information
                 # search for the first '{' and the last '}' from where we found the search string
-                start = content.find('"mcpServers":{')
+                start = stripped_content.find('"mcpServers":{')
                 if start == -1:
-                    start = content.find('"mcp":{"servers":{')
+                    start = stripped_content.find('"mcp":{"servers":{')
                 if start != -1:
                     # check if there was an opening bracket before the search string
-                    if content[start-1] == '{':
+                    if stripped_content[start-1] == '{':
                         # if there was an opening bracket, find the start of the json string
                         start -= 1
 
@@ -417,64 +431,112 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> Optional[Dict]:
                         while open_brackets != close_brackets:
                             end += 1
                             # Check if we've reached the end of the content
-                            if end >= len(content):
-                                logging.error(f"Malformed JSON: Unclosed brackets in file")
+                            if end >= len(stripped_content):
+                                error_msg = "Malformed JSON: Unclosed brackets in file"
+                                logging.error(error_msg)
+                                error_details = {
+                                    "repo_path": str(local_repo_path),
+                                    "filename": file_path,
+                                    "json_config": stripped_content[start:],  # Include everything from start
+                                    "error_message": error_msg
+                                }
                                 mcp_composition = None
                                 break
-                            if content[end] == '{':
+                            if stripped_content[end] == '{':
                                 open_brackets += 1
-                            elif content[end] == '}':
+                            elif stripped_content[end] == '}':
                                 close_brackets += 1
-                        # extract the json string
-                        mcp_composition = content[start:end+1]
-                        logging.info(f"Found MCP composition in file [{file_path}]")
-                        logging.debug(f"MCP composition: {mcp_composition}")
-                        # read the object from the json string
-                        # cleanup already done during reading
-                        clean_json_str = mcp_composition
-                        try:
-                            # Try to load the cleaned JSON string
-                            mcp_composition = json.loads(clean_json_str)
-                        except json.JSONDecodeError as e:
-                            # If first attempt fails, try parsing as a raw string literal
-                            logging.debug(f"Failed to parse JSON: {e}")
+                        
+                        # If we didn't break out due to error
+                        if error_details is None:
+                            # extract the json string
+                            json_str = stripped_content[start:end+1]
+                            logging.info(f"Found MCP composition in file [{file_path}]")
+                            logging.debug(f"MCP composition: {json_str}")
+                            
+                            # Store the original file content for error reporting
+                            original_content = content
+                            
+                            # read the object from the json string
                             try:
-                                # Try to evaluate as a raw string (useful for escaped sequences)
-                                import ast
-                                raw_str = ast.literal_eval(f"'''{clean_json_str}'''")
-                                mcp_composition = json.loads(raw_str)
-                            except Exception as e:
-                                logging.error(f"Failed to parse MCP composition JSON: {e}")
-                                logging.debug(f"Problematic JSON: {raw_str}")
-                                mcp_composition = None
-                        break
-        if mcp_composition:
+                                # Try to load the cleaned JSON string
+                                mcp_composition = json.loads(json_str)
+                            except json.JSONDecodeError as e:
+                                # If first attempt fails, try parsing as a raw string literal
+                                logging.debug(f"Failed to parse JSON: {e}")
+                                try:
+                                    # Try to evaluate as a raw string (useful for escaped sequences)
+                                    import ast
+                                    raw_str = ast.literal_eval(f"'''{json_str}'''")
+                                    mcp_composition = json.loads(raw_str)
+                                except Exception as e:
+                                    error_msg = f"Failed to parse MCP composition JSON: {e}"
+                                    logging.error(error_msg)
+                                    error_details = {
+                                        "repo_path": str(local_repo_path),
+                                        "filename": file_path,
+                                        "json_config": original_content,  # Use the original content for better context
+                                        "error_message": error_msg
+                                    }
+                                    mcp_composition = None
+                            break  # We found a composition file, so break the file loop
+        
+        # If we found a composition or hit an error, break the directory loop
+        if mcp_composition is not None or error_details is not None:
             break
     
-    return mcp_composition
+    return mcp_composition, error_details
 
-def get_composition_info(composition: Dict) -> Dict:
+def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
     """
     Extracts runtime command info from the MCP composition dict.
-    Returns a dict with the first server's command and args, or empty if not found.
+    Returns a tuple containing:
+    - A dict with the first server's command and args, or empty if not found.
+    - A dict with error details if an error occurred, or None if successful
     """
-    if not composition or "mcpServers" not in composition:
-        return {}
-    servers = composition["mcpServers"]
-    for server_name, server_info in servers.items():
-        command = server_info.get("command", "")
-        # Initialize server_type with a default value
-        server_type = "unknown"
-        # Check for different command types
-        if command.endswith("uv"):
-            server_type = "uv"
-        elif command == "npx":
-            server_type = "npx"
+    error_details = None
+    
+    try:
+        if not composition:
+            error_details = {
+                "error_message": "Empty composition provided"
+            }
+            return {}, error_details
             
-        args = server_info.get("args", [])
-        # Return info for the first server found
-        return {"server": server_name, "server_type": server_type, "command": command, "args": args}
-    return {}
+        if "mcpServers" not in composition:
+            error_details = {
+                "error_message": "Missing 'mcpServers' key in composition",
+                "json_config": json.dumps(composition, indent=2)
+            }
+            return {}, error_details
+            
+        servers = composition["mcpServers"]
+        for server_name, server_info in servers.items():
+            command = server_info.get("command", "")
+            # Initialize server_type with a default value
+            server_type = "unknown"
+            # Check for different command types
+            if command.endswith("uv"):
+                server_type = "uv"
+            elif command == "npx":
+                server_type = "npx"
+                
+            args = server_info.get("args", [])
+            # Return info for the first server found
+            return {"server": server_name, "server_type": server_type, "command": command, "args": args}, None
+        
+        # If we get here, there were no servers in the mcpServers object
+        error_details = {
+            "error_message": "No servers found in 'mcpServers' object",
+            "json_config": json.dumps(composition, indent=2)
+        }
+        return {}, error_details
+    except Exception as e:
+        error_details = {
+            "error_message": f"Exception analyzing composition: {str(e)}",
+            "json_config": json.dumps(composition, indent=2) if composition else "None"
+        }
+        return {}, error_details
 
 def main():
     """Main execution function."""
@@ -560,28 +622,124 @@ def main():
                 scanned_repos += 1
 
                 # locate the default branch of the fork
-                fork_default_branch = repo.default_branch if repo.fork else None
+                # Get the GITHUB_TOKEN environment variable for issue creation
+                github_token = os.getenv("GITHUB_TOKEN")
+                token_auth_gh = None
+                if github_token:
+                    # Create a GitHub client authenticated with the token for issue creation
+                    token_auth_gh = GitHub(github_token)
+                    logging.info("Created GitHub client with token for issue creation")
+                else:
+                    logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures.")
 
                 # clone the repo to a temp directory
                 local_repo_path = Path(f"tmp/{repo.name}")
                 clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
 
                 # Scan repository for MCP composition
-                composition = scan_repo_for_mcp_composition(local_repo_path)
-                if composition:
-                    logging.info(f"Found MCP composition in repository [{repo.name}]: {composition}")
+                composition, scan_error = scan_repo_for_mcp_composition(local_repo_path)
+                
+                # Handle scan errors (when scan finds a file but fails to parse it)
+                if scan_error:
+                    error_msg = scan_error.get("error_message", "Unknown error")
+                    logging.error(f"Failed to scan MCP composition in repository [{repo.name}]: {error_msg}")
+                    
+                    # Add to failed analysis repos list
+                    failed_analysis_repos.append({
+                        "name": repo.name, 
+                        "reason": error_msg,
+                        "file": os.path.basename(scan_error.get("filename", "unknown"))
+                    })
+                    
+                    # Create a GitHub issue for the failure if token is available
+                    if token_auth_gh:
+                        issue_title = f"Failed analysis: {error_msg}"
+                        issue_body = f"""
+# MCP Composition Analysis Failure
+
+- **Repository**: {repo.name}
+- **File**: {os.path.basename(scan_error.get("filename", "unknown"))}
+- **Error**: {error_msg}
+
+## JSON Configuration
+```json
+{scan_error.get("json_config", "Not available")}
+```
+                        """
+                        
+                        create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                                    issue_title, issue_body, ["analysis-failure"])
+                    
+                # If scan was successful but found a composition
+                elif composition:
+                    logging.info(f"Found MCP composition in repository [{repo.name}]")
                     try:
-                        runtime = get_composition_info(composition)
-                        if runtime:
-                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                        runtime, analysis_error = get_composition_info(composition)
+                        
+                        # Handle analysis errors
+                        if analysis_error or not runtime:
+                            error_msg = analysis_error.get("error_message", "Unknown error") if analysis_error else "Empty result from get_composition_info"
+                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: {error_msg}")
+                            
+                            # Add to failed analysis repos list
+                            failed_analysis_repos.append({
+                                "name": repo.name, 
+                                "reason": error_msg
+                            })
+                            
+                            # Create a GitHub issue for the failure if token is available
+                            if token_auth_gh:
+                                issue_title = f"Failed analysis: {error_msg}"
+                                json_config = analysis_error.get("json_config", json.dumps(composition, indent=2)) if analysis_error else json.dumps(composition, indent=2)
+                                
+                                issue_body = f"""
+# MCP Composition Analysis Failure
+
+- **Repository**: {repo.name}
+- **Error**: {error_msg}
+
+## JSON Configuration
+```json
+{json_config}
+```
+                                """
+                                
+                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                                           issue_title, issue_body, ["analysis-failure"])
                         else:
-                            # Track failed analysis where get_composition_info returns empty dict
-                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: get_composition_info returned empty result")
-                            failed_analysis_repos.append({"name": repo.name, "reason": "Empty result from get_composition_info"})
+                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
                     except Exception as e:
+                        # Catch any unexpected exceptions during the analysis
+                        error_msg = f"Unexpected error: {str(e)}"
                         logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
-                        failed_analysis_repos.append({"name": repo.name, "reason": str(e)})
-                        runtime = {}
+                        
+                        # Add to failed analysis repos list
+                        failed_analysis_repos.append({
+                            "name": repo.name, 
+                            "reason": error_msg
+                        })
+                        
+                        # Create a GitHub issue for the failure if token is available
+                        if token_auth_gh:
+                            issue_title = f"Failed analysis: {error_msg}"
+                            
+                            issue_body = f"""
+# MCP Composition Analysis Failure
+
+- **Repository**: {repo.name}
+- **Error**: {error_msg}
+
+## JSON Configuration
+```json
+{json.dumps(composition, indent=2)}
+```
+                            """
+                            
+                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                                       issue_title, issue_body, ["analysis-failure"])
+                else:
+                    logging.info(f"No MCP composition found in repository [{repo.name}]")
+                    runtime = {}
 
                 # Add alerts to totals if scan was successful
                 total_code_alerts += code_alerts["total"]
@@ -640,10 +798,12 @@ def main():
             summary_lines.append("")  # Add empty line for proper markdown rendering
             summary_lines.append("**Failed Analysis Repositories**")
             summary_lines.append("")
-            summary_lines.append("| Repository | Reason |")
-            summary_lines.append("| ---------- | ------ |")
+            summary_lines.append("| Repository | File | Reason |")
+            summary_lines.append("| ---------- | ---- | ------ |")
             for repo in failed_analysis_repos:
-                summary_lines.append(f"| {repo['name']} | {repo['reason']} |")
+                file_name = repo.get('file', '')
+                file_col = f" {file_name} " if file_name else " - "
+                summary_lines.append(f"| {repo['name']} |{file_col}| {repo['reason']} |")
             summary_lines.append("\n")
         
         # Log summary to console
@@ -655,7 +815,8 @@ def main():
         if failed_analysis_repos:
             logging.info("Failed Analysis Repositories:")
             for repo in failed_analysis_repos:
-                logging.info(f"1. {repo['name']}: {repo['reason']}")
+                file_str = f" (file: {repo.get('file')})" if 'file' in repo else ""
+                logging.info(f"1. {repo['name']}{file_str}: {repo['reason']}")
         
         show_rate_limit(gh)
         
