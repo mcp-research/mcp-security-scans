@@ -137,6 +137,15 @@ MCP_SERVER_LOADERS.append(load_mcp_servers_from_my_custom_repo)
 
 The main function will automatically use all registered loaders to collect MCP server configurations.
 
+## GitHub Workflows
+
+This repository includes several GitHub workflows that automate various tasks:
+
+* **Process MCP Repositories**: Automatically forks repositories and enables GHAS features.
+* **Daily Security Report**: Generates daily security reports for the repositories.
+* **Create Repository Properties**: Sets up required repository properties.
+* **Tag @rajbos on New Issues**: Automatically tags @rajbos on new issues that were not created by them, ensuring timely attention to reported issues.
+
 ## Testing
 ```bash
 python -m unittest tests.test_mcp_scan
