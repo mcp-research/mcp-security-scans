@@ -49,10 +49,11 @@ class TestBinaryFiles(unittest.TestCase):
     def test_binary_file_handling(self):
         """Test that scan_repo_for_mcp_composition can handle binary files gracefully."""
         # The function should skip binary files and find content in the text file
-        result = scan_repo_for_mcp_composition(self.test_dir)
+        result, error_details = scan_repo_for_mcp_composition(self.test_dir)
         
         # It should have found the MCPServers configuration in the valid.json file
         self.assertIsNotNone(result, "Failed to find MCP configuration in test directory")
+        self.assertIsNone(error_details, "Error details should be None for successful scan")
         self.assertIn("mcpServers", result, "'mcpServers' key missing in result")
         self.assertIn("server1", result["mcpServers"], "'server1' key missing in mcpServers")
 

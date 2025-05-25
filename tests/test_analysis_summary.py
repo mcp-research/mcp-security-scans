@@ -19,12 +19,14 @@ class TestAnalysisSummary(unittest.TestCase):
     def test_empty_result_tracking(self):
         """Test that empty results from get_composition_info are tracked correctly."""
         # Test with empty composition
-        empty_result = get_composition_info({})
+        empty_result, error_details = get_composition_info({})
         self.assertEqual(empty_result, {}, "Empty composition should return empty dict")
+        self.assertIsNotNone(error_details, "Error details should be provided for empty composition")
         
         # Test with missing mcpServers
-        missing_servers_result = get_composition_info({"someOtherKey": "value"})
+        missing_servers_result, error_details = get_composition_info({"someOtherKey": "value"})
         self.assertEqual(missing_servers_result, {}, "Composition without mcpServers should return empty dict")
+        self.assertIsNotNone(error_details, "Error details should be provided for missing mcpServers")
     
     def test_summary_table_generation(self):
         """Test the generation of the summary table for failed repositories."""
