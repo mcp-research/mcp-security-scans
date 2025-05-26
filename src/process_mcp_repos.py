@@ -226,7 +226,7 @@ def reprocess_repository(properties: dict) -> bool:
         return False
 
     # Reprocess if none of the above conditions are met
-    return True	
+    return True
 
 def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
     """
@@ -480,7 +480,7 @@ def main():
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
             if processed_inc or skipped_non_fork or failed_fork: # Log separator only if something happened
-                 logging.info("")  
+                 logging.info("")
 
         # Reporting
         logging.info("")

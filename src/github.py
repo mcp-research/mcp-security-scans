@@ -374,8 +374,8 @@ def is_valid_tarball(file_path: str) -> bool:
         logging.debug(f"File type for [{file_path}]: {file_type}")
         
         # Check if it's a gzip compressed file or tarball
-        return ('gzip' in file_type.lower() or 
-                'tar archive' in file_type.lower() or 
+        return ('gzip' in file_type.lower() or
+                'tar archive' in file_type.lower() or
                 'compressed data' in file_type.lower())
     except Exception as e:
         logging.error(f"Error checking file type for [{file_path}]: {e}")

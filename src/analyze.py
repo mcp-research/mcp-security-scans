@@ -49,7 +49,7 @@ SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
 DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
 DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
 SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
@@ -543,11 +543,11 @@ def main():
     start_time = datetime.datetime.now()
     
     parser = argparse.ArgumentParser(description="Scan repositories for GHAS alerts and store in repository properties.")
-    parser.add_argument("--target-org", default=TARGET_ORG, 
+    parser.add_argument("--target-org", default=TARGET_ORG,
                         help=f"Target GitHub organization to scan (default: [{TARGET_ORG}])")
-    parser.add_argument("--num-repos", type=int, default=10, 
+    parser.add_argument("--num-repos", type=int, default=10,
                         help="Maximum number of repositories to scan (default: 10)")
-    parser.add_argument("--verbose", "-v", action="store_true", 
+    parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     
     args = parser.parse_args()
@@ -646,7 +646,7 @@ def main():
                     
                     # Add to failed analysis repos list
                     failed_analysis_repos.append({
-                        "name": repo.name, 
+                        "name": repo.name,
                         "reason": error_msg,
                         "file": os.path.basename(scan_error.get("filename", "unknown"))
                     })
@@ -667,7 +667,7 @@ def main():
 ```
                         """
                         
-                        create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                        create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
                                     issue_title, issue_body, ["analysis-failure"])
                     
                 # If scan was successful but found a composition
@@ -683,7 +683,7 @@ def main():
                             
                             # Add to failed analysis repos list
                             failed_analysis_repos.append({
-                                "name": repo.name, 
+                                "name": repo.name,
                                 "reason": error_msg
                             })
                             
@@ -704,7 +704,7 @@ def main():
 ```
                                 """
                                 
-                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
                                            issue_title, issue_body, ["analysis-failure"])
                         else:
                             logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
@@ -715,7 +715,7 @@ def main():
                         
                         # Add to failed analysis repos list
                         failed_analysis_repos.append({
-                            "name": repo.name, 
+                            "name": repo.name,
                             "reason": error_msg
                         })
                         
@@ -735,7 +735,7 @@ def main():
 ```
                             """
                             
-                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
+                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
                                        issue_title, issue_body, ["analysis-failure"])
                 else:
                     logging.info(f"No MCP composition found in repository [{repo.name}]")

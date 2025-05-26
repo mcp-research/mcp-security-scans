@@ -40,7 +40,7 @@ SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
 DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
 DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
 GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
@@ -357,8 +357,8 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
             
             # Sort repositories by total alerts
             top_repos = sorted(
-                stats['repos_alerts'].items(), 
-                key=lambda x: x[1]['total'], 
+                stats['repos_alerts'].items(),
+                key=lambda x: x[1]['total'],
                 reverse=True
             )
             
@@ -433,8 +433,8 @@ def print_console_summary(stats: Dict) -> None:
     if not (os.getenv("CI")):
         print("\nTop 5 Repositories with Most Alerts:")
         top_repos = sorted(
-            stats['repos_alerts'].items(), 
-            key=lambda x: x[1]['total'], 
+            stats['repos_alerts'].items(),
+            key=lambda x: x[1]['total'],
             reverse=True
         )
         
@@ -468,11 +468,11 @@ def main() -> None:
     start_time = datetime.datetime.now()
     
     parser = argparse.ArgumentParser(description="Generate GHAS security reports from repository properties")
-    parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG, 
+    parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG,
                        help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
-    parser.add_argument("--output-dir", default=REPORT_DIR, 
+    parser.add_argument("--output-dir", default=REPORT_DIR,
                        help=f"Directory to save reports (default: {REPORT_DIR})")
-    parser.add_argument("--verbose", "-v", action="store_true", 
+    parser.add_argument("--verbose", "-v", action="store_true",
                        help="Enable verbose logging")
     
     args = parser.parse_args()
