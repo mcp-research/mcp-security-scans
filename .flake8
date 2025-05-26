@@ -27,8 +27,6 @@ ignore =
     # E114: Indentation is not a multiple of 4 (comment)
     E114,
     # F401: Module imported but unused
-    F841,
-    # F541: f-string is missing placeholders
     F541,
     # W292: No newline at end of file
     W292,
