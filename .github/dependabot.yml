@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: "monthly"
       day: "tuesday"
-      time: "09:00"
+      time: "15:00"
     target-branch: "main"
     labels:
       - "dependencies"
