@@ -4,6 +4,8 @@ name: Tag @rajbos on New Issues
 # to ensure timely attention to reported issues in this repository.
 
 on:
+  pull_request:
+    types: [opened]
   issues:
     types: [opened]
 
