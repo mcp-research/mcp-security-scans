@@ -12,10 +12,6 @@ exclude =
     env,
     tmp
 ignore = 
-    # E261: At least two spaces before inline comment
-    E261,
-    # W291: Trailing whitespace
-    W291,
     # E303: Too many blank lines
     E303,
     # W293: Blank line contains whitespace
