@@ -454,7 +454,7 @@ def print_console_summary(stats: Dict) -> None:
             critical_code = repo_data.get('code_critical', 0)
             critical_dep = repo_data.get('dep_critical', 0)
             if critical_code > 0 or critical_dep > 0:
-                print(f"{critical_count+1}. {repo_name}: {critical_code} critical code alerts, {critical_dep} critical dependency alerts")
+                print(f"{critical_count + 1}. {repo_name}: {critical_code} critical code alerts, {critical_dep} critical dependency alerts")
                 critical_count += 1
                 if critical_count >= 5:
                     break
@@ -469,11 +469,11 @@ def main() -> None:
     
     parser = argparse.ArgumentParser(description="Generate GHAS security reports from repository properties")
     parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG,
-                       help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
+                        help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
     parser.add_argument("--output-dir", default=REPORT_DIR,
-                       help=f"Directory to save reports (default: {REPORT_DIR})")
+                        help=f"Directory to save reports (default: {REPORT_DIR})")
     parser.add_argument("--verbose", "-v", action="store_true",
-                       help="Enable verbose logging")
+                        help="Enable verbose logging")
     
     args = parser.parse_args()
     

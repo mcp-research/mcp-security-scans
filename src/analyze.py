@@ -106,9 +106,9 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["medium"] += 1
             
         logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
-                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                    f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
-                    f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                     f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
+                     f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
         
         return result
         
@@ -224,8 +224,8 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["low"] += 1
             
         logging.info(f"Found [{result['total']}] open dependency alerts for [{owner}/{repo}], " +
-                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                    f"Moderate: {result['moderate']}, Low: {result['low']}")
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                     f"Moderate: {result['moderate']}, Low: {result['low']}")
         
         return result
         
@@ -420,7 +420,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                     start = stripped_content.find('"mcp":{"servers":{')
                 if start != -1:
                     # check if there was an opening bracket before the search string
-                    if stripped_content[start-1] == '{':
+                    if stripped_content[start - 1] == '{':
                         # if there was an opening bracket, find the start of the json string
                         start -= 1
 
@@ -450,7 +450,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                         # If we didn't break out due to error
                         if error_details is None:
                             # extract the json string
-                            json_str = stripped_content[start:end+1]
+                            json_str = stripped_content[start:end + 1]
                             logging.info(f"Found MCP composition in file [{file_path}]")
                             logging.debug(f"MCP composition: {json_str}")
                             
@@ -613,7 +613,7 @@ def main():
                 logging.info(f"Reached scan limit of [{args.num_repos}] repositories.")
                 break
                 
-            logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
+            logging.info(f"Processing repository {scanned_repos + 1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
@@ -668,7 +668,7 @@ def main():
                         """
                         
                         create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
-                                    issue_title, issue_body, ["analysis-failure"])
+                                     issue_title, issue_body, ["analysis-failure"])
                     
                 # If scan was successful but found a composition
                 elif composition:
@@ -705,7 +705,7 @@ def main():
                                 """
                                 
                                 create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
-                                           issue_title, issue_body, ["analysis-failure"])
+                                            issue_title, issue_body, ["analysis-failure"])
                         else:
                             logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
                     except Exception as e:
@@ -736,7 +736,7 @@ def main():
                             """
                             
                             create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
-                                       issue_title, issue_body, ["analysis-failure"])
+                                        issue_title, issue_body, ["analysis-failure"])
                 else:
                     logging.info(f"No MCP composition found in repository [{repo.name}]")
                     runtime = {}
