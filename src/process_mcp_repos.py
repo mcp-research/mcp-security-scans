@@ -7,7 +7,7 @@ from pathlib import Path
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
-from typing import Any # Or replace with specific githubkit client type
+from typing import Any  # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
@@ -15,14 +15,14 @@ from .github import get_github_client, enable_ghas_features, check_dependabot_co
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("githubkit").setLevel(logging.WARNING) # Reduce verbosity from githubkit
-load_dotenv() # Load environment variables from .env file
+logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
+load_dotenv()  # Load environment variables from .env file
 
 # Constants
 MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
 LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
 server_files_from_loader_DIR_IN_REPO = Path("server/src/data/split")
-TARGET_ORG = "mcp-research" # The organization to fork into
+TARGET_ORG = "mcp-research"  # The organization to fork into
 
 # Collection of MCP server list loader functions
 MCP_SERVER_LOADERS = []

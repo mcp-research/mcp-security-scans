@@ -405,10 +405,10 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                 except Exception as e_latin1:
                     # If both fail, log and skip the file
                     logging.error(f"Could not read file [{file_path}] with UTF-8 or latin-1: {e_latin1}")
-                    continue # Skip to the next file
+                    continue  # Skip to the next file
             except Exception as e:
                 logging.error(f"Error reading file [{file_path}]: {e}")
-                continue # Skip to the next file
+                continue  # Skip to the next file
             
             # strip all spaces/tabs/newlines from the content for searching
             stripped_content = content.replace(" ", "").replace("\n", "").replace("\t", "")
@@ -755,7 +755,7 @@ def main():
             else:
                 skipped_repos += 1
                 
-            logging.info("") # Add a blank line for readability
+            logging.info("")  # Add a blank line for readability
         
         # --- Generate summary ---
         end_time = datetime.datetime.now()
