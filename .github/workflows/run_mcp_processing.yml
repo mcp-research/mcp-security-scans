@@ -57,5 +57,5 @@ jobs:
           NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-50}"
 
           echo "Running script with arguments. Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG]"
-          python src/process_mcp_repos.py $TARGET_ORG_ARG $NUM_REPOS_ARG
+          python -m src.process_mcp_repos $TARGET_ORG_ARG $NUM_REPOS_ARG
 
