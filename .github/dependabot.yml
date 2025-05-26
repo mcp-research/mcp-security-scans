@@ -17,3 +17,20 @@ updates:
         update-types:
           - "minor"
           - "patch"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "tuesday"
+      time: "15:00"
+    target-branch: "main"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
