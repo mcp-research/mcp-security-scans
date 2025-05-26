@@ -6,7 +6,7 @@ import logging
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 from dotenv import load_dotenv
 
@@ -251,9 +251,6 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 alerts_by_date[date_key]['dependency_high'] += dep_high
                 alerts_by_date[date_key]['dependency_moderate'] += dep_moderate
                 alerts_by_date[date_key]['dependency_low'] += dep_low
-    
-    # Calculate totals
-    total_alerts = total_code_alerts + total_secret_alerts + total_dependency_alerts
     
     # Generate summary statistics
     stats = {

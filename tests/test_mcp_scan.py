@@ -8,7 +8,7 @@ import sys
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 # Find the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

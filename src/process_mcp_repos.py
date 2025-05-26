@@ -4,15 +4,14 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from githubkit.exception import RequestError, RequestFailed, RequestTimeout
+from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
 from typing import Any # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
-from .github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
-from .functions import should_scan_repository
+from .github import get_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -122,7 +121,7 @@ def ensure_repository_fork(
             logging.info(f"Fork [{target_org}/{target_repo_name}] does not exist. Creating fork...")
             try:
                 # fork the repository
-                fork_response = gh.rest.repos.create_fork(
+                gh.rest.repos.create_fork(
                     owner=source_owner,
                     repo=source_repo,
                     org=target_org, # specify the target organization

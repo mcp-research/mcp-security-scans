@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch, MagicMock
 import os
 import sys
-import json
 from pathlib import Path
 
 # Get the path to the project root

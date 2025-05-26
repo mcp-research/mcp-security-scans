@@ -16,7 +16,7 @@ from githubkit.versions.latest.models import FullRepository
 # Import the local functions
 from .github import (
     get_github_client, list_all_repositories_for_org,
-    list_all_repository_properties_for_org, get_repository_properties,
+    list_all_repository_properties_for_org,
     update_repository_properties, show_rate_limit, handle_github_api_error,
     clone_repository, create_issue
 )

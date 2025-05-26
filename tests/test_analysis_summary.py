@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-import datetime
-from unittest.mock import patch, MagicMock
-import io
 import sys
-import logging
 import os
 
 # Add the parent directory to the path so we can import the src module
