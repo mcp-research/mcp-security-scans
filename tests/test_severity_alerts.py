@@ -78,7 +78,7 @@ class TestSeverityAlerts(unittest.TestCase):
             MagicMock(rule=MagicMock(severity="high")),
             MagicMock(rule=MagicMock(severity="medium")),
             MagicMock(rule=MagicMock(severity="low")),
-            MagicMock(rule=MagicMock(severity="warning")), # Should map to low
+            MagicMock(rule=MagicMock(severity="warning")),  # Should map to low
             MagicMock(rule=MagicMock(severity="note")),    # Should map to low
             MagicMock(rule=MagicMock(severity="error")),   # Should map to medium
         ]
