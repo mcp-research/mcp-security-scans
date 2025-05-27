@@ -1,0 +1,73 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Process MCP Repos",
+            "type": "python",
+            "request": "launch",
+            "module": "src.process_mcp_repos",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--num-repos", "3"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Analyze Repos",
+            "type": "python",
+            "request": "launch",
+            "module": "src.analyze",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--num-repos", "3"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Generate Report",
+            "type": "python",
+            "request": "launch",
+            "module": "src.report",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "All Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "discover",
+                "tests"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Current Test File",
+            "type": "python",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "tests.${fileBasenameNoExtension}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
