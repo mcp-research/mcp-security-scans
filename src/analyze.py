@@ -44,7 +44,7 @@ CODE_ALERTS_LOW = "CodeAlerts_Low"
 
 # Property names for secret scanning alerts (no standard severity levels)
 SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
-SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
+SECRET_ALERTS_BY_TYPE = "SecretAlerts_By_Type"
 
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
