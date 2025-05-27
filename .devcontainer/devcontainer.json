@@ -24,11 +24,20 @@
                     "./tests",
                     "-p",
                     "test_*.py"
-                ]
+                ],
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true,
+                    "**/*.egg-info": true
+                },
+                "terminal.integrated.env.linux": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                }
             }
         }
     },
-    "postCreateCommand": "pip install --upgrade pip && pip install -r requirements-dev.txt",
+    "postCreateCommand": "pip install --upgrade pip && pip install -e .",
+    "postStartCommand": "pip install -r requirements-dev.txt",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/git:1": {
