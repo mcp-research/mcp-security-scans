@@ -488,13 +488,20 @@ def main():
 
         # Use all registered MCP server loaders to collect JSON files
         all_server_repos = []
+        source_counts = {}  # Dictionary to track repositories from each source
         
         # Loop through all registered MCP server loaders
         for loader_func in MCP_SERVER_LOADERS:
-            logging.info(f"Loading MCP servers using: {loader_func.__name__}")
+            source_name = loader_func.__name__
+            logging.info(f"Loading MCP servers using: {source_name}")
             server_files_from_loader = loader_func()
             if server_files_from_loader:
+                count = len(server_files_from_loader)
+                source_counts[source_name] = count
+                logging.info(f"Found [{count}] repositories from {source_name}")
                 all_server_repos.extend(server_files_from_loader)
+            else:
+                source_counts[source_name] = 0
         
         # Deduplicate JSON files (in case multiple sources have the same file)
         all_server_repos = sorted(list(set(all_server_repos)))
@@ -563,6 +570,14 @@ def main():
             f"- Final repositories in target org `{args.target_org}`: `{final_repo_count}`",
             f"- Total execution time: `{duration}`"
         ]
+
+        # Add source counts to summary
+        if source_counts:
+            summary_lines.append("\nDistinct Source Counts:")
+            for source_name, count in source_counts.items():
+                # Format the source name for better readability
+                display_name = source_name.replace("load_mcp_servers_from_", "")
+                summary_lines.append(f"- `{display_name}`: `{count}`")
 
         # Add failed forks list with reasons if any exist
         if failed_forks:
