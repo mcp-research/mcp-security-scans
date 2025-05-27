@@ -36,6 +36,7 @@ DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
 LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
 SERVER_FILES_DIR_IN_REPO = "server/src/data/split"
+SERVER_FILES_DIR_PATH = Path(SERVER_FILES_DIR_IN_REPO)  # Convert to Path object for use in code
 
 # Report directory
 REPORT_DIR = "reports"  # Directory to save reports

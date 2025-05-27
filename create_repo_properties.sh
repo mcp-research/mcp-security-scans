@@ -3,6 +3,19 @@
 # Script to create all repository properties needed for MCP Security Scans
 # Usage: ./create_repo_properties.sh <org_name> <github_token>
 
+# Source the constants file if it exists
+if [ -f "./constants.sh" ]; then
+    source ./constants.sh
+else
+    echo "Warning: constants.sh file not found. Generating it now..."
+    python constants_bridge.py
+    if [ -f "./constants.sh" ]; then
+        source ./constants.sh
+    else
+        echo "Error: Failed to generate constants.sh. Using hardcoded values."
+    fi
+fi
+
 # Check if organization name and token are provided
 if [ "$#" -lt 2 ]; then
     echo "Usage: $0 <org_name> <github_token>"
@@ -89,27 +102,27 @@ create_property() {
 # Create all the repository properties needed
 
 # Last scan timestamp properties
-create_property "GHAS_Status_Updated" "Timestamp of last GHAS status update" "string" "false" "" "" "org_and_repo_actors"
+create_property "$GHAS_STATUS_UPDATED" "Timestamp of last GHAS status update" "string" "false" "" "" "org_and_repo_actors"
 
 # Total alert count properties
-create_property "CodeAlerts" "Total number of code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "SecretAlerts" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "DependencyAlerts" "Total number of dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$CODE_ALERTS" "Total number of code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$SECRET_ALERTS" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$DEPENDENCY_ALERTS" "Total number of dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 # Code scanning alerts by severity
-create_property "CodeAlerts_Critical" "Number of critical code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "CodeAlerts_High" "Number of high code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "CodeAlerts_Medium" "Number of medium code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "CodeAlerts_Low" "Number of low code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$CODE_ALERTS_CRITICAL" "Number of critical code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$CODE_ALERTS_HIGH" "Number of high code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$CODE_ALERTS_MEDIUM" "Number of medium code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$CODE_ALERTS_LOW" "Number of low code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 # Secret scanning alerts (total only, no severity levels)
-create_property "SecretAlerts_Total" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "SecretAlerts_By_Type" "Number of secret scanning alerts by type" "string" "false" "" "" "org_and_repo_actors"
+create_property "$SECRET_ALERTS_TOTAL" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$SECRET_ALERTS_BY_TYPE" "Number of secret scanning alerts by type" "string" "false" "" "" "org_and_repo_actors"
 
 # Dependency alerts by severity
-create_property "DependencyAlerts_Critical" "Number of critical dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "DependencyAlerts_High" "Number of high dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "DependencyAlerts_Moderate" "Number of moderate dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "DependencyAlerts_Low" "Number of low dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$DEPENDENCY_ALERTS_CRITICAL" "Number of critical dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$DEPENDENCY_ALERTS_HIGH" "Number of high dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$DEPENDENCY_ALERTS_MODERATE" "Number of moderate dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+create_property "$DEPENDENCY_ALERTS_LOW" "Number of low dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
 
 echo "Repository properties creation completed."

@@ -14,15 +14,12 @@ import time
 
 # Import the local functions
 from .github import get_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties
-from .constants import TARGET_ORG, MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH, SERVER_FILES_DIR_IN_REPO
+from .constants import TARGET_ORG, MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH, SERVER_FILES_DIR_IN_REPO, SERVER_FILES_DIR_PATH
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
-
-# Convert the SERVER_FILES_DIR_IN_REPO string to a Path object
-server_files_from_loader_DIR_IN_REPO = Path(SERVER_FILES_DIR_IN_REPO)
 
 # Collection of MCP server list loader functions
 MCP_SERVER_LOADERS = []
@@ -46,7 +43,7 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
         logging.info(f"MCP Agents Hub repository at [{LOCAL_REPO_PATH}] already exists and was updated")
     
     # Find JSON files in the MCP Agents Hub repo
-    json_dir = LOCAL_REPO_PATH / server_files_from_loader_DIR_IN_REPO
+    json_dir = LOCAL_REPO_PATH / SERVER_FILES_DIR_PATH
     if not json_dir.is_dir():
         logging.error(f"JSON directory not found: [{json_dir}]")
         return []
