@@ -35,6 +35,7 @@ This project contains a Python script to automate the process of forking reposit
 3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
+    pip install -r requirements-dev.txt
     ```
 
 4.  **GitHub App Setup:**
@@ -96,21 +97,21 @@ To add support for a new repository containing MCP server configurations:
 def load_mcp_servers_from_my_custom_repo() -> list[Path]:
     """
     Loads MCP server configurations from your custom repository.
-    
+
     Returns:
         A list of Path objects pointing to files containing server configurations.
     """
     repo_url = "https://github.com/your-org/your-repo.git"
     local_path = Path("./cloned_your_repo")
     json_dir_in_repo = Path("path/to/configs")
-    
+
     # Clone or update the repository
     newly_cloned = clone_or_update_repo(repo_url, local_path)
     if newly_cloned:
         logging.info(f"Custom repository newly cloned to [{local_path}]")
     else:
         logging.info(f"Custom repository at [{local_path}] already exists and was updated")
-    
+
     # Find configuration files in the repository
     json_dir = local_path / json_dir_in_repo
     if not json_dir.is_dir():
@@ -121,7 +122,7 @@ def load_mcp_servers_from_my_custom_repo() -> list[Path]:
     if not config_files:
         logging.warning(f"No configuration files found in [{json_dir}]")
         return []
-    
+
     logging.info(f"Found [{len(config_files)}] configuration files in custom repository")
     return config_files
 ```
