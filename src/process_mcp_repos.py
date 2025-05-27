@@ -569,7 +569,8 @@ def main():
             f"- Repositories among processed with Dependabot config: `{dependabot_enabled_count}`",
             f"- Initial repositories in target org `{args.target_org}`: `{initial_repo_count}`",
             f"- Final repositories in target org `{args.target_org}`: `{final_repo_count}`",
-            f"- Total execution time: `{duration}`"
+            f"- Total execution time: `{duration}`",
+            ""
         ]
 
         # Add failed forks list with reasons if any exist
