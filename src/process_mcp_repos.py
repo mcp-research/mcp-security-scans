@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
-from typing import Any  # Or replace with specific githubkit client type
+from typing import Any, List  # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
