@@ -15,35 +15,19 @@ from .github import (
     get_github_client, list_all_repository_properties_for_org,
     show_rate_limit
 )
+from .constants import (
+    TARGET_ORG as DEFAULT_TARGET_ORG,
+    CODE_ALERTS, SECRET_ALERTS, DEPENDENCY_ALERTS,
+    CODE_ALERTS_CRITICAL, CODE_ALERTS_HIGH, CODE_ALERTS_MEDIUM, CODE_ALERTS_LOW,
+    SECRET_ALERTS_TOTAL, SECRET_ALERTS_BY_TYPE,
+    DEPENDENCY_ALERTS_CRITICAL, DEPENDENCY_ALERTS_HIGH, DEPENDENCY_ALERTS_MODERATE, DEPENDENCY_ALERTS_LOW,
+    GHAS_STATUS_UPDATED, REPORT_DIR
+)
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
 load_dotenv()  # Load environment variables from .env file
-
-# Constants
-DEFAULT_TARGET_ORG = "mcp-research"  # Default organization to scan
-CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
-SECRET_ALERTS = "SecretAlerts"  # Property name for secret scanning alerts
-DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
-
-# Property names for code scanning alerts by severity
-CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
-CODE_ALERTS_HIGH = "CodeAlerts_High"
-CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
-CODE_ALERTS_LOW = "CodeAlerts_Low"
-
-# Property names for secret scanning alerts (no standard severity levels)
-SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
-SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
-
-# Property names for dependency alerts by severity
-DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
-DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
-DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
-
-GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
 REPORT_DIR = "reports"  # Directory to save reports
 
 def parse_iso_date(date_string: str) -> Optional[datetime.datetime]:
