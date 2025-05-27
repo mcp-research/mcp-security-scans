@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
+
 # Target organization
 TARGET_ORG = "mcp-research"  # The organization to scan
 
@@ -29,6 +31,11 @@ DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
 DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
 DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
 DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
+
+# MCP Agents Hub repository constants
+MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
+LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
+SERVER_FILES_DIR_IN_REPO = "server/src/data/split"
 
 # Report directory
 REPORT_DIR = "reports"  # Directory to save reports
