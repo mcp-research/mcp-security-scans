@@ -334,7 +334,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         
         # Add section for secret alerts by type
         f.write("## Secret Scanning Alerts by Type\n\n")
-        if stats['secret_alerts_by_type']:
+        if len(stats['secret_alerts_by_type']) > 0:
             for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
                 f.write(f"- {secret_type}: {count}\n")
         elif stats['total_secret_alerts'] > 0:
@@ -416,7 +416,7 @@ def print_console_summary(stats: Dict) -> None:
     
     # Print secret type breakdown
     print("\nSecret Scanning Alerts by Type:")
-    if stats['secret_alerts_by_type']:
+    if len(stats['secret_alerts_by_type']) > 0:
         for secret_type, count in sorted(stats['secret_alerts_by_type'].items(), key=lambda x: x[1], reverse=True):
             print(f"  - {secret_type}: {count}")
     elif stats['total_secret_alerts'] > 0:
