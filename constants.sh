@@ -7,23 +7,43 @@ TARGET_ORG="mcp-research"
 # Property name for last scan timestamp
 GHAS_STATUS_UPDATED="GHAS_Status_Updated"
 
-# Property names for total alert counts
-CODE_ALERTS="CodeAlerts"
-SECRET_ALERTS="SecretAlerts"
-DEPENDENCY_ALERTS="DependencyAlerts"
+# Repository property names
 
-# Property names for code scanning alerts by severity
-CODE_ALERTS_CRITICAL="CodeAlerts_Critical"
-CODE_ALERTS_HIGH="CodeAlerts_High"
-CODE_ALERTS_MEDIUM="CodeAlerts_Medium"
-CODE_ALERTS_LOW="CodeAlerts_Low"
+# Total number of code scanning alerts
+CODEALERTS="CodeAlerts"
 
-# Property names for secret scanning alerts
-SECRET_ALERTS_TOTAL="SecretAlerts_Total"
-SECRET_ALERTS_BY_TYPE="SecretAlerts_By_Type"
+# Total number of secret scanning alerts
+SECRETALERTS="SecretAlerts"
 
-# Property names for dependency alerts by severity
-DEPENDENCY_ALERTS_CRITICAL="DependencyAlerts_Critical"
-DEPENDENCY_ALERTS_HIGH="DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE="DependencyAlerts_Moderate"
-DEPENDENCY_ALERTS_LOW="DependencyAlerts_Low"
+# Total number of dependency alerts
+DEPENDENCYALERTS="DependencyAlerts"
+
+# Number of critical code scanning alerts
+CODEALERTS_CRITICAL="CodeAlerts_Critical"
+
+# Number of high code scanning alerts
+CODEALERTS_HIGH="CodeAlerts_High"
+
+# Number of medium code scanning alerts
+CODEALERTS_MEDIUM="CodeAlerts_Medium"
+
+# Number of low code scanning alerts
+CODEALERTS_LOW="CodeAlerts_Low"
+
+# Total number of secret scanning alerts
+SECRETALERTS_TOTAL="SecretAlerts_Total"
+
+# Number of secret scanning alerts by type
+SECRETALERTS_BY_TYPE="SecretAlerts_By_Type"
+
+# Number of critical dependency alerts
+DEPENDENCYALERTS_CRITICAL="DependencyAlerts_Critical"
+
+# Number of high dependency alerts
+DEPENDENCYALERTS_HIGH="DependencyAlerts_High"
+
+# Number of moderate dependency alerts
+DEPENDENCYALERTS_MODERATE="DependencyAlerts_Moderate"
+
+# Number of low dependency alerts
+DEPENDENCYALERTS_LOW="DependencyAlerts_Low"

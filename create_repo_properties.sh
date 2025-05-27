@@ -3,18 +3,18 @@
 # Script to create all repository properties needed for MCP Security Scans
 # Usage: ./create_repo_properties.sh <org_name> <github_token>
 
-# Source the constants file if it exists
-if [ -f "./constants.sh" ]; then
-    source ./constants.sh
-else
-    echo "Warning: constants.sh file not found. Generating it now..."
+# Generate constants.sh if it doesn't exist
+if [ ! -f "./constants.sh" ]; then
+    echo "Generating constants.sh from Python constants..."
     python constants_bridge.py
-    if [ -f "./constants.sh" ]; then
-        source ./constants.sh
-    else
-        echo "Error: Failed to generate constants.sh. Using hardcoded values."
+    if [ ! -f "./constants.sh" ]; then
+        echo "Error: Failed to generate constants.sh. Exiting."
+        exit 1
     fi
 fi
+
+# Source the constants file
+source ./constants.sh
 
 # Check if organization name and token are provided
 if [ "$#" -lt 2 ]; then
@@ -74,7 +74,7 @@ create_property() {
     
     # Close JSON object
     json_data="$json_data}"
-
+    
     echo "  JSON payload: $json_data"
     
     # Make API call to create the property
@@ -99,30 +99,28 @@ create_property() {
     fi
 }
 
-# Create all the repository properties needed
-
-# Last scan timestamp properties
+# Create last scan timestamp property
 create_property "$GHAS_STATUS_UPDATED" "Timestamp of last GHAS status update" "string" "false" "" "" "org_and_repo_actors"
 
-# Total alert count properties
-create_property "$CODE_ALERTS" "Total number of code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$SECRET_ALERTS" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$DEPENDENCY_ALERTS" "Total number of dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+# Create repository properties from constants.sh
+# First, get all property variable names from constants.sh
+# Looking for non-comment lines that set variables with pattern: NAME="Value"
+PROPERTY_VARS=$(grep -E '^[A-Z_]+=".+"' constants.sh | awk -F= '{print $1}')
 
-# Code scanning alerts by severity
-create_property "$CODE_ALERTS_CRITICAL" "Number of critical code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$CODE_ALERTS_HIGH" "Number of high code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$CODE_ALERTS_MEDIUM" "Number of medium code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$CODE_ALERTS_LOW" "Number of low code scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-
-# Secret scanning alerts (total only, no severity levels)
-create_property "$SECRET_ALERTS_TOTAL" "Total number of secret scanning alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$SECRET_ALERTS_BY_TYPE" "Number of secret scanning alerts by type" "string" "false" "" "" "org_and_repo_actors"
-
-# Dependency alerts by severity
-create_property "$DEPENDENCY_ALERTS_CRITICAL" "Number of critical dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$DEPENDENCY_ALERTS_HIGH" "Number of high dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$DEPENDENCY_ALERTS_MODERATE" "Number of moderate dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
-create_property "$DEPENDENCY_ALERTS_LOW" "Number of low dependency alerts" "string" "false" "0" "" "org_and_repo_actors"
+for VAR_NAME in $PROPERTY_VARS; do
+    # Skip the organization and timestamp variables
+    if [[ "$VAR_NAME" == "TARGET_ORG" || "$VAR_NAME" == "GHAS_STATUS_UPDATED" ]]; then
+        continue
+    fi
+    
+    # Get the property name value
+    PROP_NAME="${!VAR_NAME}"
+    
+    # Get property description from the comment line above each property
+    DESCRIPTION=$(grep -B 1 "^$VAR_NAME=" constants.sh | head -n 1 | sed 's/^# //')
+    
+    # Create the property
+    create_property "$PROP_NAME" "$DESCRIPTION" "string" "false" "0" "" "org_and_repo_actors"
+done
 
 echo "Repository properties creation completed."

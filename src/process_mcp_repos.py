@@ -14,7 +14,7 @@ import time
 
 # Import the local functions
 from .github import get_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties
-from .constants import TARGET_ORG, MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH, SERVER_FILES_DIR_IN_REPO, SERVER_FILES_DIR_PATH
+from .constants import Constants
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,14 +36,14 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
         Returns an empty list if no files are found or if there's an error.
     """
     # Clone or Update MCP Agents Hub repo
-    newly_cloned = clone_or_update_repo(MCP_AGENTS_HUB_REPO_URL, LOCAL_REPO_PATH)
+    newly_cloned = clone_or_update_repo(Constants.AgentsHub.MCP_AGENTS_HUB_REPO_URL, Constants.AgentsHub.LOCAL_REPO_PATH)
     if newly_cloned:
-        logging.info(f"MCP Agents Hub repository newly cloned to [{LOCAL_REPO_PATH}]")
+        logging.info(f"MCP Agents Hub repository newly cloned to [{Constants.AgentsHub.LOCAL_REPO_PATH}]")
     else:
-        logging.info(f"MCP Agents Hub repository at [{LOCAL_REPO_PATH}] already exists and was updated")
+        logging.info(f"MCP Agents Hub repository at [{Constants.AgentsHub.LOCAL_REPO_PATH}] already exists and was updated")
     
     # Find JSON files in the MCP Agents Hub repo
-    json_dir = LOCAL_REPO_PATH / SERVER_FILES_DIR_PATH
+    json_dir = Constants.AgentsHub.LOCAL_REPO_PATH / Constants.AgentsHub.SERVER_FILES_DIR_PATH
     if not json_dir.is_dir():
         logging.error(f"JSON directory not found: [{json_dir}]")
         return []
@@ -456,7 +456,7 @@ def main():
     start_time = datetime.datetime.now() # Record start time
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
     # Removed app-id and private-key-path arguments
-    parser.add_argument("--target-org", default=TARGET_ORG, help=f"Target GitHub organization to fork into (default: {TARGET_ORG})")
+    parser.add_argument("--target-org", default=Constants.Org.TARGET_ORG, help=f"Target GitHub organization to fork into (default: {Constants.Org.TARGET_ORG})")
     parser.add_argument("--num-repos", type=int, default=3, help="Number of repositories to process (default: 3 for local runs)")
 
     args = parser.parse_args()

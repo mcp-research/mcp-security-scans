@@ -15,14 +15,7 @@ from .github import (
     get_github_client, list_all_repository_properties_for_org,
     show_rate_limit
 )
-from .constants import (
-    TARGET_ORG as DEFAULT_TARGET_ORG,
-    CODE_ALERTS, SECRET_ALERTS, DEPENDENCY_ALERTS,
-    CODE_ALERTS_CRITICAL, CODE_ALERTS_HIGH, CODE_ALERTS_MEDIUM, CODE_ALERTS_LOW,
-    SECRET_ALERTS_TOTAL, SECRET_ALERTS_BY_TYPE,
-    DEPENDENCY_ALERTS_CRITICAL, DEPENDENCY_ALERTS_HIGH, DEPENDENCY_ALERTS_MODERATE, DEPENDENCY_ALERTS_LOW,
-    GHAS_STATUS_UPDATED, REPORT_DIR
-)
+from .constants import Constants
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -149,32 +142,32 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         properties = {prop.property_name: prop.value for prop in repo_prop.properties}
         
         # Check if repo has been scanned
-        if GHAS_STATUS_UPDATED in properties:
+        if Constants.ScanSettings.GHAS_STATUS_UPDATED in properties:
             scanned_repos += 1
             
             # Parse scan date
-            scan_date_str = properties.get(GHAS_STATUS_UPDATED)
+            scan_date_str = properties.get(Constants.ScanSettings.GHAS_STATUS_UPDATED)
             scan_date = parse_iso_date(scan_date_str)
             
             # Get alert counts - use safe conversion to handle None values
-            code_alerts = safe_int_convert(properties.get(CODE_ALERTS, 0))
-            secret_alerts = safe_int_convert(properties.get(SECRET_ALERTS, 0))
-            dependency_alerts = safe_int_convert(properties.get(DEPENDENCY_ALERTS, 0))
+            code_alerts = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS, 0))
+            secret_alerts = safe_int_convert(properties.get(Constants.AlertProperties.SECRET_ALERTS, 0))
+            dependency_alerts = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS, 0))
             
             # Get code scanning alert counts by severity
-            code_critical = safe_int_convert(properties.get(CODE_ALERTS_CRITICAL, 0))
-            code_high = safe_int_convert(properties.get(CODE_ALERTS_HIGH, 0))
-            code_medium = safe_int_convert(properties.get(CODE_ALERTS_MEDIUM, 0))
-            code_low = safe_int_convert(properties.get(CODE_ALERTS_LOW, 0))
+            code_critical = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_CRITICAL, 0))
+            code_high = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_HIGH, 0))
+            code_medium = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_MEDIUM, 0))
+            code_low = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_LOW, 0))
             
             # Get dependency alert counts by severity
-            dep_critical = safe_int_convert(properties.get(DEPENDENCY_ALERTS_CRITICAL, 0))
-            dep_high = safe_int_convert(properties.get(DEPENDENCY_ALERTS_HIGH, 0))
-            dep_moderate = safe_int_convert(properties.get(DEPENDENCY_ALERTS_MODERATE, 0))
-            dep_low = safe_int_convert(properties.get(DEPENDENCY_ALERTS_LOW, 0))
+            dep_critical = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICAL, 0))
+            dep_high = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH, 0))
+            dep_moderate = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_MODERATE, 0))
+            dep_low = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_LOW, 0))
             
             # Get secret alert types
-            secret_types_json = properties.get(SECRET_ALERTS_BY_TYPE, "{}")
+            secret_types_json = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "{}")
             try:
                 secret_types = json.loads(secret_types_json)
                 # Add to type totals
@@ -452,10 +445,10 @@ def main() -> None:
     start_time = datetime.datetime.now()
     
     parser = argparse.ArgumentParser(description="Generate GHAS security reports from repository properties")
-    parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG,
-                        help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
-    parser.add_argument("--output-dir", default=REPORT_DIR,
-                        help=f"Directory to save reports (default: {REPORT_DIR})")
+    parser.add_argument("--target-org", default=Constants.Org.TARGET_ORG,
+                        help=f"Target GitHub organization (default: {Constants.Org.TARGET_ORG})")
+    parser.add_argument("--output-dir", default=Constants.Reports.REPORT_DIR,
+                        help=f"Directory to save reports (default: {Constants.Reports.REPORT_DIR})")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     
