@@ -4,10 +4,12 @@ import json
 import argparse
 import logging
 from pathlib import Path
+import requests
+from bs4 import BeautifulSoup
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
-from typing import Any  # Or replace with specific githubkit client type
+from typing import Any, List  # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
@@ -72,6 +74,63 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
 
 # Register the MCP Agents Hub loader
 MCP_SERVER_LOADERS.append(load_mcp_servers_from_mcp_agents_hub)
+
+def load_mcp_servers_from_awesome_mcp_servers() -> List[str]:
+    """
+    Loads MCP server configurations from the awesome-mcp-servers repository.
+    
+    This function fetches the README file from the awesome-mcp-servers repository
+    and extracts GitHub URLs of MCP servers listed there.
+    
+    Returns:
+        A list of GitHub URLs of MCP server repositories.
+        Returns an empty list if no URLs are found or if there's an error.
+    """
+    awesome_mcp_repo_url = "https://github.com/punkpeye/awesome-mcp-servers"
+    raw_readme_url = "https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md"
+    
+    try:
+        logging.info(f"Fetching awesome-mcp-servers list from [{raw_readme_url}]")
+        
+        # Fetch the raw README content
+        response = requests.get(raw_readme_url)
+        response.raise_for_status()  # Raise an exception for 4XX/5XX responses
+        
+        # Parse the content for URLs
+        content = response.text
+        
+        # Get all GitHub repository URLs
+        github_urls = []
+        lines = content.split('\n')
+        
+        for line in lines:
+            # Look for markdown links: [text](url)
+            if '](https://github.com/' in line and not '](#' in line:  # Exclude internal links
+                start_idx = line.find('](https://github.com/') + 2  # Position after ](
+                end_idx = line.find(')', start_idx)
+                if end_idx > start_idx:
+                    url = line[start_idx:end_idx]
+                    # Ensure it's a repo URL (contains exactly one / after github.com/)
+                    parts = url.replace('https://github.com/', '').split('/')
+                    if len(parts) >= 2 and parts[0] and parts[1]:  # Valid owner/repo format
+                        github_urls.append(url)
+        
+        if not github_urls:
+            logging.warning(f"No GitHub repository URLs found in awesome-mcp-servers README")
+            return []
+        
+        logging.info(f"Found [{len(github_urls)}] GitHub URLs in awesome-mcp-servers README")
+        return github_urls
+        
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to fetch awesome-mcp-servers README: [{e}]")
+        return []
+    except Exception as e:
+        logging.error(f"Error processing awesome-mcp-servers README: [{e}]")
+        return []
+
+# Register the awesome-mcp-servers loader
+MCP_SERVER_LOADERS.append(load_mcp_servers_from_awesome_mcp_servers)
 
 def ensure_repository_fork(
     existing_repos: list[FullRepository],
