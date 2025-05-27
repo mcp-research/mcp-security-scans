@@ -1,0 +1,47 @@
+{
+    "name": "MCP Security Scans",
+    "image": "mcr.microsoft.com/devcontainers/python:3.10",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.flake8",
+                "GitHub.copilot",
+                "GitHub.vscode-pull-request-github"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.flake8Enabled": true,
+                "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+                "python.testing.unittestEnabled": true,
+                "python.testing.pytestEnabled": false,
+                "editor.formatOnSave": true,
+                "python.testing.unittestArgs": [
+                    "-v",
+                    "-s",
+                    "./tests",
+                    "-p",
+                    "test_*.py"
+                ],
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/.pytest_cache": true,
+                    "**/*.egg-info": true
+                },
+                "terminal.integrated.env.linux": {
+                    "PYTHONPATH": "${workspaceFolder}"
+                }
+            }
+        }
+    },
+    "postCreateCommand": "pip install --upgrade pip && pip install -e .",
+    "postStartCommand": "pip install -r requirements-dev.txt",
+    "remoteUser": "vscode",
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "latest"
+        }
+    }
+}
