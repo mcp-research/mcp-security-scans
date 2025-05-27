@@ -12,6 +12,8 @@ import subprocess
 import magic
 import time
 
+from .functions import is_running_interactively
+
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
     try:
@@ -303,10 +305,24 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
              logging.error(f"Failed to update custom properties {property_names} for [{target_org}/{target_repo_name}] with 422 Unprocessable Entity.")
              logging.error("This often means one or more custom property names do not exist for the organization/repo or a value is invalid for its property type.")
              logging.error(f"Error details: {e.response.json()}") # Log the response body if available
+             
+             # Show more detailed information when running interactively
+             if is_running_interactively():
+                logging.error("Detailed property values that caused the error:")
+                for idx, prop in enumerate(custom_properties_list):
+                    logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+                    
         handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
         raise
     except Exception as e:
         logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
+        
+        # Show more detailed information when running interactively
+        if is_running_interactively():
+            logging.error("Detailed property values that caused the error:")
+            for idx, prop in enumerate(custom_properties_list):
+                logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+        
         raise
 
 def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, existing_repos_properties: list[dict]) -> dict[str, Any]:

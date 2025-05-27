@@ -2,6 +2,8 @@
 
 import datetime
 import logging
+import os
+import sys
 from typing import Any, Dict
 
 def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
@@ -38,3 +40,20 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
     except (ValueError, TypeError):
         logging.warning(f"Invalid timestamp format: {last_scanned}. Scanning...")
         return True
+
+def is_running_interactively() -> bool:
+    """
+    Determines if the script is running in an interactive environment.
+    
+    Returns:
+        True if running interactively (terminal, debugger, etc.), False in CI environments.
+    """
+    # Check for common CI environment variables
+    if os.environ.get('GITHUB_ACTION') or os.environ.get('CI'):
+        return False
+    
+    # Check if running in a terminal or if a debugger is attached
+    is_tty = sys.stdin.isatty() and sys.stdout.isatty()
+    has_debugger = sys.gettrace() is not None
+    
+    return is_tty or has_debugger
