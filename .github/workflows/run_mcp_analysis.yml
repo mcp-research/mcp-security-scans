@@ -71,6 +71,7 @@ jobs:
         env:
           GH_APP_ID: ${{ vars.GH_APP_ID }} 
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
           # Use the input if manually triggered, otherwise the script uses its internal default
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
           NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
