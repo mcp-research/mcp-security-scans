@@ -5,8 +5,7 @@ This project contains a Python script to automate the process of forking reposit
 ## Features
 
 *   Supports loading MCP server configurations from multiple repository sources.
-*   Currently includes support for the `mcp-agents-ai/mcp-agents-hub` repository.
-*   Parses JSON files from `server/src/data/split` within the cloned repo to find source GitHub repository URLs.
+  *   Currently includes support for the `mcp-agents-ai/mcp-agents-hub` repository.
 *   Authenticates with GitHub using a GitHub App.
 *   Forks the identified source repositories into a specified target organization (default: `mcp-research`).
 *   Checks if a fork already exists before attempting to create one.
@@ -14,8 +13,7 @@ This project contains a Python script to automate the process of forking reposit
     *   Dependency Scanning (via Vulnerability Alerts)
     *   Automated Security Fixes
     *   Secret Scanning
-    *   Secret Scanning Push Protection
-    *   Code Scanning Default Setup (if supported for the repository's language)
+    *   Code Scanning with Default Setup (if supported for the repository's language)
 *   Checks if a `.github/dependabot.yml` file exists in each fork.
 *   Reports the total number of repositories processed and the count of those with/without a Dependabot configuration.
 *   Handles GitHub API errors and displays rate limit information.

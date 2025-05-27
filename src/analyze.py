@@ -16,7 +16,7 @@ from githubkit.versions.latest.models import FullRepository
 # Import the local functions
 from .github import (
     get_github_client, list_all_repositories_for_org,
-    list_all_repository_properties_for_org, get_repository_properties,
+    list_all_repository_properties_for_org,
     update_repository_properties, show_rate_limit, handle_github_api_error,
     clone_repository, create_issue
 )
@@ -49,7 +49,7 @@ SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
 DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
 DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
 SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
@@ -106,9 +106,9 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["medium"] += 1
             
         logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
-                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                    f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
-                    f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                     f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
+                     f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
         
         return result
         
@@ -224,8 +224,8 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
                 result["low"] += 1
             
         logging.info(f"Found [{result['total']}] open dependency alerts for [{owner}/{repo}], " +
-                    f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                    f"Moderate: {result['moderate']}, Low: {result['low']}")
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+                     f"Moderate: {result['moderate']}, Low: {result['low']}")
         
         return result
         
@@ -405,10 +405,10 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                 except Exception as e_latin1:
                     # If both fail, log and skip the file
                     logging.error(f"Could not read file [{file_path}] with UTF-8 or latin-1: {e_latin1}")
-                    continue # Skip to the next file
+                    continue  # Skip to the next file
             except Exception as e:
                 logging.error(f"Error reading file [{file_path}]: {e}")
-                continue # Skip to the next file
+                continue  # Skip to the next file
             
             # strip all spaces/tabs/newlines from the content for searching
             stripped_content = content.replace(" ", "").replace("\n", "").replace("\t", "")
@@ -420,7 +420,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                     start = stripped_content.find('"mcp":{"servers":{')
                 if start != -1:
                     # check if there was an opening bracket before the search string
-                    if stripped_content[start-1] == '{':
+                    if stripped_content[start - 1] == '{':
                         # if there was an opening bracket, find the start of the json string
                         start -= 1
 
@@ -450,7 +450,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                         # If we didn't break out due to error
                         if error_details is None:
                             # extract the json string
-                            json_str = stripped_content[start:end+1]
+                            json_str = stripped_content[start:end + 1]
                             logging.info(f"Found MCP composition in file [{file_path}]")
                             logging.debug(f"MCP composition: {json_str}")
                             
@@ -543,11 +543,11 @@ def main():
     start_time = datetime.datetime.now()
     
     parser = argparse.ArgumentParser(description="Scan repositories for GHAS alerts and store in repository properties.")
-    parser.add_argument("--target-org", default=TARGET_ORG, 
+    parser.add_argument("--target-org", default=TARGET_ORG,
                         help=f"Target GitHub organization to scan (default: [{TARGET_ORG}])")
-    parser.add_argument("--num-repos", type=int, default=10, 
+    parser.add_argument("--num-repos", type=int, default=10,
                         help="Maximum number of repositories to scan (default: 10)")
-    parser.add_argument("--verbose", "-v", action="store_true", 
+    parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
     
     args = parser.parse_args()
@@ -613,7 +613,7 @@ def main():
                 logging.info(f"Reached scan limit of [{args.num_repos}] repositories.")
                 break
                 
-            logging.info(f"Processing repository {scanned_repos+1}/{min(total_repos, args.num_repos)}: {repo.name}")
+            logging.info(f"Processing repository {scanned_repos + 1}/{min(total_repos, args.num_repos)}: {repo.name}")
             
             # Updated scan_repository call to get alert counts
             success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
@@ -646,7 +646,7 @@ def main():
                     
                     # Add to failed analysis repos list
                     failed_analysis_repos.append({
-                        "name": repo.name, 
+                        "name": repo.name,
                         "reason": error_msg,
                         "file": os.path.basename(scan_error.get("filename", "unknown"))
                     })
@@ -667,8 +667,8 @@ def main():
 ```
                         """
                         
-                        create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
-                                    issue_title, issue_body, ["analysis-failure"])
+                        create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
+                                     issue_title, issue_body, ["analysis-failure"])
                     
                 # If scan was successful but found a composition
                 elif composition:
@@ -683,7 +683,7 @@ def main():
                             
                             # Add to failed analysis repos list
                             failed_analysis_repos.append({
-                                "name": repo.name, 
+                                "name": repo.name,
                                 "reason": error_msg
                             })
                             
@@ -704,8 +704,8 @@ def main():
 ```
                                 """
                                 
-                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
-                                           issue_title, issue_body, ["analysis-failure"])
+                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
+                                            issue_title, issue_body, ["analysis-failure"])
                         else:
                             logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
                     except Exception as e:
@@ -715,7 +715,7 @@ def main():
                         
                         # Add to failed analysis repos list
                         failed_analysis_repos.append({
-                            "name": repo.name, 
+                            "name": repo.name,
                             "reason": error_msg
                         })
                         
@@ -735,8 +735,8 @@ def main():
 ```
                             """
                             
-                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans", 
-                                       issue_title, issue_body, ["analysis-failure"])
+                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
+                                        issue_title, issue_body, ["analysis-failure"])
                 else:
                     logging.info(f"No MCP composition found in repository [{repo.name}]")
                     runtime = {}
@@ -755,7 +755,7 @@ def main():
             else:
                 skipped_repos += 1
                 
-            logging.info("") # Add a blank line for readability
+            logging.info("")  # Add a blank line for readability
         
         # --- Generate summary ---
         end_time = datetime.datetime.now()

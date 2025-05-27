@@ -4,6 +4,8 @@ name: Tag @rajbos on New Issues
 # to ensure timely attention to reported issues in this repository.
 
 on:
+  pull_request:
+    types: [opened]
   issues:
     types: [opened]
 
@@ -26,6 +28,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: '@rajbos A new issue was created that might need your attention.'
+              body: '@rajbos A new issue or PR was created that might need your attention.'
             });
             console.log('Tagged @rajbos on issue #' + context.issue.number);

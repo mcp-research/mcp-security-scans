@@ -1,0 +1,23 @@
+name: "Actionlint Workflow Check"
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 5 * * 1'  # Run at 05:30 UTC every Monday
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  actionlint:
+    name: Lint GitHub Actions Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Actionlint
+        uses: devops-actions/actionlint@c6744a34774e4e1c1df0ff66bdb07ec7ee480ca0 # v0.1.9
+        id: actionlint
