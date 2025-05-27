@@ -5,7 +5,6 @@ import argparse
 import logging
 from pathlib import Path
 import requests
-from bs4 import BeautifulSoup
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
@@ -29,13 +28,14 @@ TARGET_ORG = "mcp-research"  # The organization to fork into
 # Collection of MCP server list loader functions
 MCP_SERVER_LOADERS = []
 
+
 def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
     """
     Loads MCP server configurations from the MCP Agents Hub repository.
-    
+
     This function clones or updates the MCP Agents Hub repository and finds
     all JSON files in the specified directory within the repository.
-    
+
     Returns:
         A list of Path objects pointing to the JSON files containing server configurations.
         Returns an empty list if no files are found or if there's an error.
@@ -46,7 +46,7 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
         logging.info(f"MCP Agents Hub repository newly cloned to [{LOCAL_REPO_PATH}]")
     else:
         logging.info(f"MCP Agents Hub repository at [{LOCAL_REPO_PATH}] already exists and was updated")
-    
+
     # Find JSON files in the MCP Agents Hub repo
     json_dir = LOCAL_REPO_PATH / server_files_from_loader_DIR_IN_REPO
     if not json_dir.is_dir():
@@ -57,7 +57,7 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
     if not server_repo:
         logging.warning(f"No JSON files found in [{json_dir}]")
         return []
-    
+
     logging.info(f"Found [{len(server_repo)}] JSON files in MCP Agents Hub repository")
 
     all_server_repos = []
@@ -75,34 +75,34 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
 # Register the MCP Agents Hub loader
 MCP_SERVER_LOADERS.append(load_mcp_servers_from_mcp_agents_hub)
 
+
 def load_mcp_servers_from_awesome_mcp_servers() -> List[str]:
     """
     Loads MCP server configurations from the awesome-mcp-servers repository.
-    
+
     This function fetches the README file from the awesome-mcp-servers repository
     and extracts GitHub URLs of MCP servers listed there.
-    
+
     Returns:
         A list of GitHub URLs of MCP server repositories.
         Returns an empty list if no URLs are found or if there's an error.
     """
-    awesome_mcp_repo_url = "https://github.com/punkpeye/awesome-mcp-servers"
     raw_readme_url = "https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md"
-    
+
     try:
         logging.info(f"Fetching awesome-mcp-servers list from [{raw_readme_url}]")
-        
+
         # Fetch the raw README content
         response = requests.get(raw_readme_url)
         response.raise_for_status()  # Raise an exception for 4XX/5XX responses
-        
+
         # Parse the content for URLs
         content = response.text
-        
+
         # Get all GitHub repository URLs
         github_urls = []
         lines = content.split('\n')
-        
+
         for line in lines:
             # Look for markdown links: [text](url)
             if '](https://github.com/' in line and not '](#' in line:  # Exclude internal links
@@ -114,14 +114,14 @@ def load_mcp_servers_from_awesome_mcp_servers() -> List[str]:
                     parts = url.replace('https://github.com/', '').split('/')
                     if len(parts) >= 2 and parts[0] and parts[1]:  # Valid owner/repo format
                         github_urls.append(url)
-        
+
         if not github_urls:
             logging.warning(f"No GitHub repository URLs found in awesome-mcp-servers README")
             return []
-        
+
         logging.info(f"Found [{len(github_urls)}] GitHub URLs in awesome-mcp-servers README")
         return github_urls
-        
+
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to fetch awesome-mcp-servers README: [{e}]")
         return []
@@ -129,8 +129,10 @@ def load_mcp_servers_from_awesome_mcp_servers() -> List[str]:
         logging.error(f"Error processing awesome-mcp-servers README: [{e}]")
         return []
 
+
 # Register the awesome-mcp-servers loader
 MCP_SERVER_LOADERS.append(load_mcp_servers_from_awesome_mcp_servers)
+
 
 def ensure_repository_fork(
     existing_repos: list[FullRepository],
@@ -173,19 +175,19 @@ def ensure_repository_fork(
         if target_repo_info and target_repo_info.fork and parent_full_name.lower() == source_repo_full_name.lower():
             logging.info(f"Fork [{target_org}/{target_repo_name}] already exists.")
             fork_exists = True
-        elif target_repo_info: # repository exists but is not the correct fork
-             logging.warning(f"Repository [{target_org}/{target_repo_name}] exists but is not a fork of [{source_repo_full_name}]. Skipping GHAS enablement.")
-             fork_skipped = True # mark as skipped
-        else: # repository does not exist
+        elif target_repo_info:  # repository exists but is not the correct fork
+            logging.warning(f"Repository [{target_org}/{target_repo_name}] exists but is not a fork of [{source_repo_full_name}]. Skipping GHAS enablement.")
+            fork_skipped = True  # mark as skipped
+        else:  # repository does not exist
             logging.info(f"Fork [{target_org}/{target_repo_name}] does not exist. Creating fork...")
             try:
                 # fork the repository
                 gh.rest.repos.create_fork(
                     owner=source_owner,
                     repo=source_repo,
-                    org=target_org, # specify the target organization
-                    name=target_repo_name, # specify the new name for the fork
-                    default_branch_only=True # fork only the default branch
+                    org=target_org,  # specify the target organization
+                    name=target_repo_name,  # specify the new name for the fork
+                    default_branch_only=True  # fork only the default branch
                 )
                 logging.info(f"Fork creation initiated for [{source_repo_full_name}] into [{target_org}/{target_repo_name}]. API response status might be 202 Accepted.")
                 # assume fork will be available shortly for subsequent steps
@@ -217,6 +219,7 @@ def ensure_repository_fork(
 
     return fork_exists, fork_skipped, failure_reason
 
+
 def get_target_repo_name(source_owner: str, source_repo: str) -> str:
     """
     Generates the target repository name in the target organization.
@@ -233,6 +236,7 @@ def get_target_repo_name(source_owner: str, source_repo: str) -> str:
     """
     return f"{source_owner}__{source_repo}"
 
+
 def get_parent_full_name(repo_info: FullRepository) -> str:
     """
     Extracts the full name of the parent repository from a fork.
@@ -248,8 +252,9 @@ def get_parent_full_name(repo_info: FullRepository) -> str:
         parts = repo_info.name.split("__")
         if len(parts) == 2:
             return f"{parts[0]}/{parts[1]}"
-        
+
     return ""
+
 
 def reprocess_repository(properties: dict) -> bool:
     """
@@ -266,7 +271,7 @@ def reprocess_repository(properties: dict) -> bool:
     if last_updated:
         if last_updated == "Testing":
             return True
-        
+
         last_updated_time = datetime.datetime.fromisoformat(last_updated)
         if datetime.datetime.now() - last_updated_time < datetime.timedelta(days=7):
             logging.info("Repository was last updated within the last 7 days. Skipping reprocessing.")
@@ -286,6 +291,7 @@ def reprocess_repository(properties: dict) -> bool:
 
     # Reprocess if none of the above conditions are met
     return True
+
 
 def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
     """
@@ -324,6 +330,7 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
     except Exception as e:
         logging.error(f"An unexpected error occurred updating forked repository [{target_org}/{target_repo_name}]: [{e}]")
 
+
 def process_repository(
     existing_repos: list[FullRepository],
     github_url: str,
@@ -352,17 +359,17 @@ def process_repository(
     dependabot_increment = 0
     skipped_non_fork = False
     failed_fork = False
-    source_repo_full_name = None # Keep track of the source repo name for adding to the set
+    source_repo_full_name = None  # Keep track of the source repo name for adding to the set
 
     try:
         if not github_url:
             logging.warning(f"Skipping empty githubUrl.")
-            return 0, 0, False, False # No processing, not skipped/failed in the specific ways tracked
+            return 0, 0, False, False  # No processing, not skipped/failed in the specific ways tracked
 
         source_owner, source_repo = extract_repo_owner_name(github_url)
         if not source_owner or not source_repo:
             logging.warning(f"Could not parse owner/repo from URL '[{github_url}]'.")
-            return 0, 0, False, False # No processing
+            return 0, 0, False, False  # No processing
 
         source_repo_full_name = f"{source_owner}/{source_repo}"
         if source_repo_full_name in processed_repos:
@@ -386,7 +393,7 @@ def process_repository(
                 logging.warning(f"Skipping GHAS enablement for [{target_org}/{target_repo_name}] as it's not the correct fork.")
                 # Add to processed_repos so we don't try again with this source
                 processed_repos.add(source_repo_full_name)
-                return 0, 0, skipped_non_fork, False # Return skipped status
+                return 0, 0, skipped_non_fork, False  # Return skipped status
             else:
                 # Fork creation/check genuinely failed.
                 failed_fork = True
@@ -394,7 +401,7 @@ def process_repository(
                 # Add to failed_forks with the specific reason
                 failed_forks[source_repo_full_name] = failure_reason or "Fork creation/check failed"
                 # Don't add to processed_repos because we might want to retry later
-                return 0, 0, False, failed_fork # Return failed status
+                return 0, 0, False, failed_fork  # Return failed status
 
         # --- If we reach here, fork_exists is True ---
 
@@ -407,10 +414,10 @@ def process_repository(
         if properties:
             # check if we still need to process this repository or not
             if not reprocess_repository(properties):
-                 logging.info(f"Skipping reprocessing for [{target_org}/{target_repo_name}] based on properties.")
-                 # It was processed successfully before, return 0 for *new* processing this run
-                 # Return False for skipped/failed as it was handled correctly
-                 return 0, 0, False, False
+                logging.info(f"Skipping reprocessing for [{target_org}/{target_repo_name}] based on properties.")
+                # It was processed successfully before, return 0 for *new* processing this run
+                # Return False for skipped/failed as it was handled correctly
+                return 0, 0, False, False
         else:
             # properties not found, so have not been set yet
             logging.info(f"No properties found for [{target_org}/{target_repo_name}]. Processing...")
@@ -457,6 +464,7 @@ def process_repository(
 
 # Main Logic
 
+
 def main():
     start_time = datetime.datetime.now() # Record start time
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
@@ -488,17 +496,17 @@ def main():
 
         # Use all registered MCP server loaders to collect JSON files
         all_server_repos = []
-        
+
         # Loop through all registered MCP server loaders
         for loader_func in MCP_SERVER_LOADERS:
             logging.info(f"Loading MCP servers using: {loader_func.__name__}")
             server_files_from_loader = loader_func()
             if server_files_from_loader:
                 all_server_repos.extend(server_files_from_loader)
-        
+
         # Deduplicate JSON files (in case multiple sources have the same file)
         all_server_repos = sorted(list(set(all_server_repos)))
-        
+
         if not all_server_repos:
             logging.error("No MCP server configurations found. Exiting.")
             return
@@ -508,12 +516,12 @@ def main():
         logging.info(f"Found a total of [{len(all_server_repos)}] JSON files from all sources. Will process up to [{num_to_process}] repositories based on --num-repos.")
 
         # Process Repos
-        processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
+        processed_repo_count = 0  # Counter for successfully processed repos (forked/found + GHAS attempted)
         dependabot_enabled_count = 0
-        processed_repos = set() # Keep track of processed source repos to avoid duplicates
-        skipped_non_fork_count = 0 # Track repos skipped because they exist but aren't the correct fork
-        failed_fork_count = 0 # Track repos where fork creation/check failed
-        failed_forks = dict() # Dict to collect repositories that failed to fork with reasons
+        processed_repos = set()  # Keep track of processed source repos to avoid duplicates
+        skipped_non_fork_count = 0  # Track repos skipped because they exist but aren't the correct fork
+        failed_fork_count = 0  # Track repos where fork creation/check failed
+        failed_forks = dict()  # Dict to collect repositories that failed to fork with reasons
 
         # Iterate over all JSON files until the desired number is processed
         for github_url in all_server_repos:
@@ -529,8 +537,8 @@ def main():
                 gh,
                 args.target_org,
                 existing_repos_properties,
-                processed_repos, # Pass the set (it will be modified in place)
-                failed_forks # Pass the dict to collect failed forks with reasons
+                processed_repos,  # Pass the set (it will be modified in place)
+                failed_forks  # Pass the dict to collect failed forks with reasons
             )
 
             # Update counters based on the result from the helper function
@@ -538,18 +546,18 @@ def main():
             dependabot_enabled_count += dependabot_inc
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
-            if processed_inc or skipped_non_fork or failed_fork: # Log separator only if something happened
-                 logging.info("")
+            if processed_inc or skipped_non_fork or failed_fork:  # Log separator only if something happened
+                logging.info("")
 
         # Reporting
         logging.info("")
-        end_time = datetime.datetime.now() # Record end time
+        end_time = datetime.datetime.now()  # Record end time
         duration = end_time - start_time
         final_repo_count = len(list_all_repositories_for_org(gh, args.target_org)) # Get updated count
 
         # Prepare summary messages
         summary_lines = [
-            f"**MCP Repository Processing Summary**",
+            "**MCP Repository Processing Summary**",
             "Security Scan Results",
             f"- Total MCP server configs found: `{len(all_server_repos)}`",
             f"- Total MCP servers found: `{len(processed_repos)}`",
@@ -567,21 +575,21 @@ def main():
         # Add failed forks list with reasons if any exist
         if failed_forks:
             summary_lines.append("Failed Repository Details:")
-            for failed_repo, reason in sorted(failed_forks.items()): # Sort for consistent output
+            for failed_repo, reason in sorted(failed_forks.items()):  # Sort for consistent output
                 summary_lines.append(f"1. `{failed_repo}`: {reason}")
 
         # Log summary to console
         logging.info("Processing Summary")
-        for line in summary_lines[1:]: # Skip the markdown title for console
-            logging.info(line.replace('`', '').replace('*', '')) # Clean markdown for console
+        for line in summary_lines[1:]:  # Skip the markdown title for console
+            logging.info(line.replace('`', '').replace('*', ''))  # Clean markdown for console
         show_rate_limit(gh)
-        logging.info(f"Total execution time: [{duration}]") # Repeat duration for clarity
+        logging.info(f"Total execution time: [{duration}]")  # Repeat duration for clarity
 
         # Write summary to GITHUB_STEP_SUMMARY if available
         summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
         if summary_file_path:
             try:
-                with open(summary_file_path, "a") as summary_file: # Append mode
+                with open(summary_file_path, "a") as summary_file:  # Append mode
                     summary_file.write("\n".join(summary_lines) + "\n\n")
                 logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file: [{summary_file_path}]")
             except Exception as e:
@@ -589,9 +597,9 @@ def main():
         else:
             logging.info("GITHUB_STEP_SUMMARY environment variable not set. Skipping summary file output.")
 
-
     except Exception as e:
         logging.error(f"Script failed with an error: [{e}]")
+
 
 if __name__ == "__main__":
     main()
