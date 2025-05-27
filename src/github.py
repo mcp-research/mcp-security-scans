@@ -1,16 +1,17 @@
 import logging
-from datetime import datetime
-from githubkit import GitHub, AppInstallationAuthStrategy
-from git import Repo, GitCommandError
-from githubkit.exception import RequestError, RequestFailed
-from pathlib import Path
-from urllib.parse import urlparse
-from githubkit.versions.latest.models import FullRepository
-from typing import Any
 import os
 import subprocess
-import magic
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+from git import Repo, GitCommandError
+from githubkit import GitHub, AppInstallationAuthStrategy
+from githubkit.exception import RequestError, RequestFailed
+from githubkit.versions.latest.models import FullRepository
+import magic
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -36,12 +37,23 @@ def get_installation_github_client(
     """
     try:
         # Find the installation ID for the target organization
-        installations = gh_app.rest.apps.list_installations().json()
+        response = gh_app.rest.apps.list_installations()
+        installations = response.parsed_data
         installation_id = None
-        for inst in installations:
-            if inst.get("account", {}).get("login") == target_org:
-                installation_id = inst["id"]
-                break
+
+        if not installations:
+            raise ValueError("No GitHub App installations found")
+
+        for installation in installations:
+            try:
+                if (
+                    installation.account
+                    and getattr(installation.account, "login", None) == target_org
+                ):
+                    installation_id = installation.id
+                    break
+            except Exception:
+                continue
 
         if not installation_id:
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")

@@ -131,5 +131,6 @@ class TestMcpScan(unittest.TestCase):
         else:
             self.fail("get_composition_info returned None, expected a result containing 'npx'.")
 
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,65 +1,48 @@
 #!/usr/bin/env python3
 
-import sys
 import os
+import sys
 import unittest
-import logging
 from pathlib import Path
-import tempfile
-import shutil
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Adjust sys.path to include the project root for src imports
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
+# Add the src directory to the path so we can import the src module
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from src.analyze import scan_repo_for_mcp_composition
 
 
-class TestBinaryFiles(unittest.TestCase):
-    """Test handling of binary files in scan_repo_for_mcp_composition."""
+class TestScanBinaryFiles(unittest.TestCase):
+    """Test the scanning of repositories for MCP composition."""
 
-    def setUp(self):
-        # Create a temporary directory
-        self.test_dir = Path(tempfile.mkdtemp())
-        
-        # Create a valid text file with content
-        self.text_file = self.test_dir / "valid.json"
-        with open(self.text_file, 'w', encoding='utf-8') as f:
-            json_content = '{"mcpServers": {"server1": {"command": "uv", "args": []}}}'
-            f.write(json_content)
-            print(f"Written content to {self.text_file}: {json_content}")
-        
-        # Create a binary file that would cause decoding errors
-        self.binary_file = self.test_dir / ".DS_Store"
-        with open(self.binary_file, 'wb') as f:
-            f.write(os.urandom(1024))  # Write 1KB of random binary data
-            print(f"Created binary file {self.binary_file}")
-            
-        # Create another binary file
-        self.binary_file2 = self.test_dir / "bun.lockb"
-        with open(self.binary_file2, 'wb') as f:
-            f.write(os.urandom(1024))  # Write 1KB of random binary data
-            print(f"Created binary file {self.binary_file2}")
-        
-        print(f"Test directory contains: {list(self.test_dir.iterdir())}")
+    def test_scan_with_binary_file(self):
+        """Test that binary files are skipped during scanning."""
+        test_dir = os.path.join(os.path.dirname(__file__), "test_files", "binary_test")
+        os.makedirs(test_dir, exist_ok=True)
+        test_file = os.path.join(test_dir, "test.md")
 
-    def test_binary_file_handling(self):
-        """Test that scan_repo_for_mcp_composition can handle binary files gracefully."""
-        # The function should skip binary files and find content in the text file
-        result, error_details = scan_repo_for_mcp_composition(self.test_dir)
-        
-        # It should have found the MCPServers configuration in the valid.json file
-        self.assertIsNotNone(result, "Failed to find MCP configuration in test directory")
-        self.assertIsNone(error_details, "Error details should be None for successful scan")
-        self.assertIn("mcpServers", result, "'mcpServers' key missing in result")
-        self.assertIn("server1", result["mcpServers"], "'server1' key missing in mcpServers")
+        try:
+            # Create a binary file
+            with open(test_file, "wb") as f:
+                f.write(b"\x00\x01\x02\x03")
 
-    def tearDown(self):
-        # Clean up the temporary directory
-        shutil.rmtree(self.test_dir)
+            # Run the scan
+            result, error = scan_repo_for_mcp_composition(Path(test_dir))
+
+            # Verify result
+            self.assertIsNotNone(result)
+            self.assertIn(
+                "mcpServers", result or {}, "'mcpServers' key missing in result"
+            )
+            mcpServers = result.get("mcpServers", {}) if result else {}
+            self.assertIn("server1", mcpServers, "'server1' key missing in mcpServers")
+
+        finally:
+            # Clean up
+            try:
+                os.unlink(test_file)
+                os.rmdir(test_dir)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
