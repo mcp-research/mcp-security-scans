@@ -18,6 +18,4 @@ cloned_mcp_agents_hub/
 tmp/
 
 # VS Code
-# Uncommented to allow .vscode configuration to be committed
-# .vscode/
 reports/
