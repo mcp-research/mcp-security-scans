@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch, MagicMock
 import os
 import sys
-import json
 from pathlib import Path
 
 # Get the path to the project root
@@ -33,11 +32,11 @@ class TestIssueCreation(unittest.TestCase):
         
         # Call function under test
         result = create_issue(
-            mock_gh, 
-            "test-org", 
-            "test-repo", 
-            "Failed analysis: Test error", 
-            "This is a test issue body", 
+            mock_gh,
+            "test-org",
+            "test-repo",
+            "Failed analysis: Test error",
+            "This is a test issue body",
             ["analysis-failure"]
         )
         
@@ -64,11 +63,11 @@ class TestIssueCreation(unittest.TestCase):
         
         # Call function under test
         result = create_issue(
-            mock_gh, 
-            "test-org", 
-            "test-repo", 
-            "Failed analysis: Test error", 
-            "This is a test issue body", 
+            mock_gh,
+            "test-org",
+            "test-repo",
+            "Failed analysis: Test error",
+            "This is a test issue body",
             ["analysis-failure"]
         )
         

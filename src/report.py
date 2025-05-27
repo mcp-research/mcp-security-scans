@@ -6,7 +6,7 @@ import logging
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 from dotenv import load_dotenv
 
@@ -40,7 +40,7 @@ SECRET_ALERTS_BY_TYPE = "SecretAlerts_ByType"
 # Property names for dependency alerts by severity
 DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
 DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate" 
+DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
 DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
 GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
@@ -252,9 +252,6 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 alerts_by_date[date_key]['dependency_moderate'] += dep_moderate
                 alerts_by_date[date_key]['dependency_low'] += dep_low
     
-    # Calculate totals
-    total_alerts = total_code_alerts + total_secret_alerts + total_dependency_alerts
-    
     # Generate summary statistics
     stats = {
         'organization': target_org,
@@ -360,8 +357,8 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
             
             # Sort repositories by total alerts
             top_repos = sorted(
-                stats['repos_alerts'].items(), 
-                key=lambda x: x[1]['total'], 
+                stats['repos_alerts'].items(),
+                key=lambda x: x[1]['total'],
                 reverse=True
             )
             
@@ -436,8 +433,8 @@ def print_console_summary(stats: Dict) -> None:
     if not (os.getenv("CI")):
         print("\nTop 5 Repositories with Most Alerts:")
         top_repos = sorted(
-            stats['repos_alerts'].items(), 
-            key=lambda x: x[1]['total'], 
+            stats['repos_alerts'].items(),
+            key=lambda x: x[1]['total'],
             reverse=True
         )
         
@@ -457,7 +454,7 @@ def print_console_summary(stats: Dict) -> None:
             critical_code = repo_data.get('code_critical', 0)
             critical_dep = repo_data.get('dep_critical', 0)
             if critical_code > 0 or critical_dep > 0:
-                print(f"{critical_count+1}. {repo_name}: {critical_code} critical code alerts, {critical_dep} critical dependency alerts")
+                print(f"{critical_count + 1}. {repo_name}: {critical_code} critical code alerts, {critical_dep} critical dependency alerts")
                 critical_count += 1
                 if critical_count >= 5:
                     break
@@ -471,12 +468,12 @@ def main() -> None:
     start_time = datetime.datetime.now()
     
     parser = argparse.ArgumentParser(description="Generate GHAS security reports from repository properties")
-    parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG, 
-                       help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
-    parser.add_argument("--output-dir", default=REPORT_DIR, 
-                       help=f"Directory to save reports (default: {REPORT_DIR})")
-    parser.add_argument("--verbose", "-v", action="store_true", 
-                       help="Enable verbose logging")
+    parser.add_argument("--target-org", default=DEFAULT_TARGET_ORG,
+                        help=f"Target GitHub organization (default: {DEFAULT_TARGET_ORG})")
+    parser.add_argument("--output-dir", default=REPORT_DIR,
+                        help=f"Directory to save reports (default: {REPORT_DIR})")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Enable verbose logging")
     
     args = parser.parse_args()
     

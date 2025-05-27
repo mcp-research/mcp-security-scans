@@ -4,26 +4,25 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from githubkit.exception import RequestError, RequestFailed, RequestTimeout
+from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from dotenv import load_dotenv
-from typing import Any # Or replace with specific githubkit client type
+from typing import Any  # Or replace with specific githubkit client type
 import time
 
 # Import the local functions
-from .github import get_github_client, get_installation_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties 
-from .functions import should_scan_repository
+from .github import get_github_client, enable_ghas_features, check_dependabot_config, clone_or_update_repo, extract_repo_owner_name, get_repository_properties, handle_github_api_error, list_all_repositories_for_org, list_all_repository_properties_for_org, show_rate_limit, update_repository_properties
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("githubkit").setLevel(logging.WARNING) # Reduce verbosity from githubkit
-load_dotenv() # Load environment variables from .env file
+logging.getLogger("githubkit").setLevel(logging.WARNING)  # Reduce verbosity from githubkit
+load_dotenv()  # Load environment variables from .env file
 
 # Constants
 MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
 LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
 server_files_from_loader_DIR_IN_REPO = Path("server/src/data/split")
-TARGET_ORG = "mcp-research" # The organization to fork into
+TARGET_ORG = "mcp-research"  # The organization to fork into
 
 # Collection of MCP server list loader functions
 MCP_SERVER_LOADERS = []
@@ -122,7 +121,7 @@ def ensure_repository_fork(
             logging.info(f"Fork [{target_org}/{target_repo_name}] does not exist. Creating fork...")
             try:
                 # fork the repository
-                fork_response = gh.rest.repos.create_fork(
+                gh.rest.repos.create_fork(
                     owner=source_owner,
                     repo=source_repo,
                     org=target_org, # specify the target organization
@@ -227,7 +226,7 @@ def reprocess_repository(properties: dict) -> bool:
         return False
 
     # Reprocess if none of the above conditions are met
-    return True	
+    return True
 
 def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
     """
@@ -481,7 +480,7 @@ def main():
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
             if processed_inc or skipped_non_fork or failed_fork: # Log separator only if something happened
-                 logging.info("")  
+                 logging.info("")
 
         # Reporting
         logging.info("")

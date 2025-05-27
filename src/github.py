@@ -15,7 +15,7 @@ import time
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
     try:
-        auth = AppInstallationAuthStrategy(app_id=int(app_id), private_key=private_key, installation_id=65023400) # Note: Hardcoded installation ID might need review
+        auth = AppInstallationAuthStrategy(app_id=int(app_id), private_key=private_key, installation_id=65023400)  # Note: Hardcoded installation ID might need review
         gh = GitHub(auth)
         logging.info("GitHub client authenticated successfully as App.")
         return gh
@@ -78,7 +78,6 @@ def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[st
     all_properties = []
     logging.info(f"Fetching all custom repository properties for organization [{org}]...")
     try:
-        test = gh.rest.orgs.list_custom_properties_values_for_repos(org=org)
         paginated_properties = gh.paginate(gh.rest.orgs.list_custom_properties_values_for_repos, org=org)
 
         # iterate through the paginated results
@@ -90,10 +89,10 @@ def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[st
 
     except RequestFailed as e:
         handle_github_api_error(e, f"listing all custom repository properties for org [{org}]")
-        raise # re-raise the exception after logging
+        raise  # re-raise the exception after logging
     except Exception as e:
         logging.error(f"An unexpected error occurred while listing custom repository properties for org [{org}]: [{e}]")
-        raise # re-raise the exception
+        raise  # re-raise the exception
 
 def enable_ghas_features(gh: GitHub, owner: str, repo: str):
     """Enables GHAS features (vuln alerts, code scanning default setup, secret scanning) for a repo."""
@@ -117,8 +116,8 @@ def enable_ghas_features(gh: GitHub, owner: str, repo: str):
             gh.rest.code_scanning.update_default_setup(owner=owner, repo=repo, data={"state":"configured"})
             logging.info(f"Enabled code scanning default setup for [{owner}/{repo}].")
         except RequestFailed as e_cs:
-             # Default setup might fail if the language isn't supported or already configured
-            if e_cs.response.status_code == 404 or e_cs.response.status_code == 409: # Not found or Conflict (already enabled/in progress)
+            # Default setup might fail if the language isn't supported or already configured
+            if e_cs.response.status_code == 404 or e_cs.response.status_code == 409:  # Not found or Conflict (already enabled/in progress)
                  logging.warning(f"Could not enable code scanning default setup for [{owner}/{repo}] (Status: [{e_cs.response.status_code}]). It might be unsupported or already configured.")
             else:
                 handle_github_api_error(e_cs, f"enabling code scanning default setup for [{owner}/{repo}]")
@@ -157,7 +156,7 @@ def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
                     logging.info(f"Reset local repository to [origin/{branch_name}].")
                     break
                 except GitCommandError:
-                    continue # Try next branch name
+                    continue  # Try next branch name
             else:
                 logging.warning(
                     "Could not find 'main' or 'master' branch in remote. Local repo might not be up-to-date."
@@ -221,7 +220,7 @@ def check_dependabot_config(gh: GitHub, owner: str, repo: str) -> bool:
             return False
         else:
             handle_github_api_error(e, f"checking dependabot config for [{owner}/{repo}]")
-            return False # Assume not present if error occurs
+            return False  # Assume not present if error occurs
     except Exception as e:
         logging.error(f"Unexpected error checking dependabot config for [{owner}/{repo}]: [{e}]")
         return False
@@ -243,7 +242,7 @@ def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
     all_repos = []
     logging.info(f"Fetching all existing repositories for organization [{org}]...")
     try:
-        paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="forks") # type='all' includes public, private, forks
+        paginated_repos = gh.paginate(gh.rest.repos.list_for_org, org=org, type="forks")  # type='all' includes public, private, forks
 
         # iterate through the paginated results
         for repo in paginated_repos:
@@ -254,10 +253,10 @@ def list_all_repositories_for_org(gh: GitHub, org: str) -> list[FullRepository]:
 
     except RequestFailed as e:
         handle_github_api_error(e, f"listing all repositories for org [{org}]")
-        raise # re-raise the exception after logging
+        raise  # re-raise the exception after logging
     except Exception as e:
         logging.error(f"An unexpected error occurred while listing repositories for org [{org}]: [{e}]")
-        raise # re-raise the exception
+        raise  # re-raise the exception
 
 def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, properties: dict[str, Any]):
     """Updates *custom* repository properties using the GitHub REST API.
@@ -375,8 +374,8 @@ def is_valid_tarball(file_path: str) -> bool:
         logging.debug(f"File type for [{file_path}]: {file_type}")
         
         # Check if it's a gzip compressed file or tarball
-        return ('gzip' in file_type.lower() or 
-                'tar archive' in file_type.lower() or 
+        return ('gzip' in file_type.lower() or
+                'tar archive' in file_type.lower() or
                 'compressed data' in file_type.lower())
     except Exception as e:
         logging.error(f"Error checking file type for [{file_path}]: {e}")

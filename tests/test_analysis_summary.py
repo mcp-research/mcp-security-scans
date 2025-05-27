@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-import datetime
-from unittest.mock import patch, MagicMock
-import io
 import sys
-import logging
 import os
 
 # Add the parent directory to the path so we can import the src module
@@ -56,7 +52,7 @@ class TestAnalysisSummary(unittest.TestCase):
         # Check that each repo is included in the table
         for i, repo in enumerate(failed_repos):
             expected_row = f"| {repo['name']} | {repo['reason']} |"
-            self.assertEqual(summary_lines[3 + i], expected_row, f"Row {i+1} should contain repo info")
+            self.assertEqual(summary_lines[3 + i], expected_row, f"Row {i + 1} should contain repo info")
     
     def test_logging_failed_repos(self):
         """Test logging of failed repositories is formatted correctly."""
@@ -75,7 +71,7 @@ class TestAnalysisSummary(unittest.TestCase):
         self.assertEqual(log_messages[0], "Failed Analysis Repositories:", "Header should match")
         for i, repo in enumerate(failed_repos):
             expected = f"- {repo['name']}: {repo['reason']}"
-            self.assertEqual(log_messages[i+1], expected, f"Log line should contain correct format for {repo['name']}")
+            self.assertEqual(log_messages[i + 1], expected, f"Log line should contain correct format for {repo['name']}")
 
 if __name__ == '__main__':
     unittest.main()
