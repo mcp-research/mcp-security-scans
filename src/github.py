@@ -524,8 +524,27 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
     try:
         # Check for existing issues with similar title and the same label
         if "analysis-failure" in labels:
+            # Create a search query that ignores specific character positions for JSON parsing errors
+            search_title = title
+            
+            # For JSON parsing errors, search without the specific position details
+            if "Failed to parse MCP composition JSON" in title:
+                # Extract just the error type without line/column/char positions
+                import re
+                # Match patterns like: Expecting ',' delimiter: line 1 column 119 (char 118)
+                # Extract just "Expecting ',' delimiter" and ignore the position information
+                match = re.search(r"(Failed to parse MCP composition JSON: [^:]+)", title)
+                if match:
+                    # Use the generic error type for searching
+                    search_title = match.group(1)
+                else:
+                    # If regex doesn't match, just use the main error type
+                    search_title = "Failed to parse MCP composition JSON"
+                
+                logging.info(f"Searching for JSON parsing errors with generic pattern: [{search_title}]")
+            
             # Search for existing issues with the same error type in the title
-            search_query = f"repo:{owner}/{repo} is:issue is:open label:analysis-failure in:title {title}"
+            search_query = f"repo:{owner}/{repo} is:issue is:open label:analysis-failure in:title {search_title}"
             logging.info(f"Searching for existing issues using query: [{search_query}]")
 
             try:
