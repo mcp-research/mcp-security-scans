@@ -1,16 +1,13 @@
+#!/usr/bin/env python3
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 import sys
 import os
 from src.analyze import get_secret_scanning_alerts
 from githubkit.exception import RequestFailed
 
-#!/usr/bin/env python3
-
-
 # Add the parent directory to the path so we can import the src module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 
 class TestGetSecretScanningAlerts(unittest.TestCase):
     """Test the get_secret_scanning_alerts function."""
