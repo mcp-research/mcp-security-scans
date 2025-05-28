@@ -36,17 +36,24 @@ jobs:
           python-version: '3.11' # Use a specific Python version
           cache: 'pip' # Cache the Python package installer
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Setup virtual environment and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
 
       - name: Run MCP Repo Processing Script
         env:
-          GH_APP_ID: ${{ vars.GH_APP_ID }} 
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Use the input if manually triggered, otherwise the script uses its internal default
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
           NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
         run: |
+          # Activate the virtual environment
+          source venv/bin/activate
+
           PY_ARGS=()
           # Only add the argument if the input is not empty and not the default (to let the script handle the default)
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
