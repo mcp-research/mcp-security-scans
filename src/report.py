@@ -169,7 +169,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
 
             # Get secret alert types
             secret_types_json = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "{}")
-            if secret_types_json != "":
+            if secret_types_json != "{}":
                 try:
                     secret_types = json.loads(secret_types_json)
                     # Add to type totals
@@ -480,7 +480,7 @@ def main() -> None:
         logging.info(f"Loading repository properties for organization [{args.target_org}]...")
         repo_properties = list_all_repository_properties_for_org(gh, args.target_org)
 
-        logging.info(f"Found properties for {len(repo_properties)} repositories in organization {args.target_org}")
+        logging.info(f"Found properties for [{len(repo_properties)}] repositories in organization [{args.target_org}]")
 
         # Generate report
         stats = generate_report(repo_properties, args.target_org, args.output_dir)
