@@ -115,6 +115,9 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
     # Dictionary to track secret alerts by type
     secret_alerts_by_type = defaultdict(int)
 
+    # Dictionary to track MCP server runtime types
+    runtime_types = defaultdict(int)
+
     # Dictionary to track alerts by date
     alerts_by_date = defaultdict(lambda: {
         'code': 0,
@@ -177,6 +180,11 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                         secret_alerts_by_type[secret_type] += safe_int_convert(count)
                 except json.JSONDecodeError:
                     logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
+
+            # Get MCP server runtime type
+            runtime_type = properties.get(Constants.AlertProperties.MCP_SERVER_RUNTIME, "unknown")
+            if runtime_type:
+                runtime_types[runtime_type] += 1
 
             # Add to totals
             total_code_alerts += code_alerts
@@ -246,6 +254,8 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'dependency_alerts_by_severity': dependency_alerts_by_severity,
         # Add secret type breakdown
         'secret_alerts_by_type': dict(secret_alerts_by_type),
+        # Add runtime type breakdown
+        'runtime_types': dict(runtime_types),
         'alerts_by_date': dict(alerts_by_date),
         'repos_alerts': repos_alerts,
         'report_date': datetime.datetime.now().isoformat(),
@@ -321,6 +331,29 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         else:
             f.write("No secret scanning alerts found.\n")
         f.write("\n")
+
+        # Add section for MCP server runtime types
+        f.write("## MCP Server Runtime Distribution\n\n")
+        if len(stats['runtime_types']) > 0:
+            total_runtime_repos = sum(stats['runtime_types'].values())
+            
+            # Create table
+            f.write("| Runtime Type | Count | Percentage |\n")
+            f.write("|--------------|-------|------------|\n")
+            for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+                percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
+                f.write(f"| {runtime_type} | {count} | {percentage:.1f}% |\n")
+            f.write(f"| **Total** | **{total_runtime_repos}** | **100.0%** |\n\n")
+            
+            # Create mermaid pie chart
+            f.write("```mermaid\n")
+            f.write("pie title MCP Server Runtime Distribution\n")
+            for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+                percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
+                f.write(f'    "{runtime_type}" : {percentage:.1f}\n')
+            f.write("```\n\n")
+        else:
+            f.write("No MCP server runtime information available.\n\n")
 
         # Coverage statistics
         if stats['total_repositories'] > 0:
@@ -402,6 +435,17 @@ def print_console_summary(stats: Dict) -> None:
         print("  Secrets found but types not categorized.")
     else:
         print("  No secret scanning alerts found.")
+
+    # Print runtime type breakdown
+    print("\nMCP Server Runtime Distribution:")
+    if len(stats['runtime_types']) > 0:
+        total_runtime_repos = sum(stats['runtime_types'].values())
+        for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+            percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
+            print(f"  - {runtime_type}: {count} ({percentage:.1f}%)")
+        print(f"  Total repositories with runtime info: {total_runtime_repos}")
+    else:
+        print("  No MCP server runtime information available.")
 
     # Calculate percentages if possible
     if stats['total_repositories'] > 0:

@@ -250,7 +250,7 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
         logging.error(f"Unexpected error getting dependency alerts for [{owner}/{repo}]: {e}")
         return result
 
-def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict]) -> Tuple[bool, Dict[str, int], Dict[str, int], Dict[str, int]]:
+def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict], runtime_info: Optional[Dict] = None) -> Tuple[bool, Dict[str, int], Dict[str, int], Dict[str, int]]:
     """
     Scans a single repository for GHAS alerts and updates its properties.
 
@@ -258,6 +258,7 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         gh: Authenticated GitHub client instance.
         repo: Repository object to scan.
         existing_repos_properties: List of all repository properties in the org.
+        runtime_info: Optional dictionary containing MCP server runtime information.
 
     Returns:
         A tuple (success, code_alerts, secret_alerts, dependency_alerts):
@@ -353,6 +354,9 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH: dependency_alerts["high"],
             Constants.AlertProperties.DEPENDENCY_ALERTS_MODERATE: dependency_alerts["moderate"],
             Constants.AlertProperties.DEPENDENCY_ALERTS_LOW: dependency_alerts["low"],
+
+            # MCP Server runtime information
+            Constants.AlertProperties.MCP_SERVER_RUNTIME: runtime_info.get("server_type", "unknown") if runtime_info else "unknown",
 
             # Update timestamp
             Constants.ScanSettings.GHAS_STATUS_UPDATED: datetime.datetime.now().isoformat()
@@ -702,36 +706,58 @@ def main():
 
             logging.info(f"Processing repository {scanned_repos + 1}/{min(total_repos, args.num_repos)}: {repo.name}")
 
-            # Updated scan_repository call to get alert counts
-            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties)
+            # First, extract runtime information if possible
+            runtime = {}
+            
+            # Get the default branch and GitHub token for cloning
+            fork_default_branch = repo.default_branch if repo else "main"
+            github_token = os.getenv("GITHUB_TOKEN")
+            token_auth_gh = None
+
+            if github_token:
+                # Create a GitHub client authenticated with the token for issue creation
+                token_auth_gh = GitHub(github_token)
+                logging.info("Created GitHub client with token for issue creation if needed")
+            else:
+                logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
+
+            # clone the repo to a temp directory to check for MCP composition
+            local_repo_path = Path(f"tmp/{repo.name}")
+            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+
+            # Scan repository for MCP composition
+            composition, scan_error = scan_repo_for_mcp_composition(local_repo_path)
+
+            # Extract runtime information if composition was found
+            if composition and not scan_error:
+                logging.info(f"Found MCP composition in repository [{repo.name}]")
+                try:
+                    runtime, analysis_error = get_composition_info(composition)
+                    if analysis_error or not runtime:
+                        error_msg = analysis_error.get("error_message", "Unknown error") if analysis_error else "Empty result from get_composition_info"
+                        logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: {error_msg}")
+                        runtime = {}  # Set to empty dict if analysis failed
+                    else:
+                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                except Exception as e:
+                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                    runtime = {}  # Set to empty dict if exception occurred
+            elif scan_error:
+                logging.error(f"Failed to scan MCP composition in repository [{repo.name}]: {scan_error.get('error_message', 'Unknown error')}")
+                runtime = {}
+            else:
+                logging.info(f"No MCP composition found in repository [{repo.name}]")
+                runtime = {}
+
+            # Now scan repository for GHAS alerts with runtime information
+            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties, runtime)
 
             if success:
                 scanned_repos += 1
 
-                # Get the default branch and GitHub token
-                fork_default_branch = repo.default_branch if repo else "main"
-                github_token = os.getenv("GITHUB_TOKEN")
-                token_auth_gh = None
-
-                if github_token:
-                    # Create a GitHub client authenticated with the token for issue creation
-                    token_auth_gh = GitHub(github_token)
-                    logging.info("Created GitHub client with token for issue creation if needed")
-                else:
-                    logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
-
-                # clone the repo to a temp directory
-                local_repo_path = Path(f"tmp/{repo.name}")
-                clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
-
-                # Scan repository for MCP composition
-                composition, scan_error = scan_repo_for_mcp_composition(local_repo_path)
-
-                # Handle scan errors (when scan finds a file but fails to parse it)
+                # Handle composition analysis failures for issue creation
                 if scan_error:
                     error_msg = scan_error.get("error_message", "Unknown error")
-                    logging.error(f"Failed to scan MCP composition in repository [{repo.name}]: {error_msg}")
-
                     # Add to failed analysis repos list
                     failed_analysis_repos.append({
                         "name": repo.name,
@@ -757,74 +783,6 @@ def main():
 
                         create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
                                      issue_title, issue_body, ["analysis-failure"])
-
-                # If scan was successful but found a composition
-                elif composition:
-                    logging.info(f"Found MCP composition in repository [{repo.name}]")
-                    try:
-                        runtime, analysis_error = get_composition_info(composition)
-
-                        # Handle analysis errors
-                        if analysis_error or not runtime:
-                            error_msg = analysis_error.get("error_message", "Unknown error") if analysis_error else "Empty result from get_composition_info"
-                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: {error_msg}")
-
-                            # Add to failed analysis repos list
-                            failed_analysis_repos.append({
-                                "name": repo.name,
-                                "reason": error_msg
-                            })
-
-                            # Create a GitHub issue for the failure if token is available
-                            if token_auth_gh:
-                                issue_title = f"Failed analysis: {error_msg}"
-                                json_config = analysis_error.get("json_config", json.dumps(composition, indent=2)) if analysis_error else json.dumps(composition, indent=2)
-
-                                issue_body = f"""
-# MCP Composition Analysis Failure
-
-- **Repository**: {repo.name}
-- **Error**: {error_msg}
-
-## JSON Configuration
-```json
-{json_config}
-```
-                                """
-
-                                create_issue(token_auth_gh, args.target_org, "mcp-security-scans", issue_title, issue_body, ["analysis-failure"])
-                        else:
-                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
-                    except Exception as e:
-                        # Catch any unexpected exceptions during the analysis
-                        error_msg = f"Unexpected error: {str(e)}"
-                        logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
-
-                        # Add to failed analysis repos list
-                        failed_analysis_repos.append({
-                            "name": repo.name,
-                            "reason": error_msg
-                        })
-
-                        # Create a GitHub issue for the failure if token is available
-                        if token_auth_gh:
-                            issue_title = f"Failed analysis: {error_msg}"
-                            issue_body = f"""
-# MCP Composition Analysis Failure
-
-- **Repository**: {repo.name}
-- **Error**: {error_msg}
-
-## JSON Configuration
-```json
-{json.dumps(composition, indent=2)}
-```
-                            """
-
-                            create_issue(token_auth_gh, args.target_org, "mcp-security-scans", issue_title, issue_body, ["analysis-failure"])
-                else:
-                    logging.info(f"No MCP composition found in repository [{repo.name}]")
-                    runtime = {}
 
                 # Add alerts to totals if scan was successful
                 total_code_alerts += code_alerts["total"]
