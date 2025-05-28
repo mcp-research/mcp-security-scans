@@ -37,6 +37,9 @@ class Constants:
         DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
         DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
+        # MCP Server runtime information
+        MCP_SERVER_RUNTIME = "MCP_Server_Runtime"
+
         @classmethod
         def get_all_properties(cls) -> List[Dict[str, str]]:
             """Return all property names as a list of dictionaries with name and description"""
@@ -53,6 +56,7 @@ class Constants:
                 {"name": cls.DEPENDENCY_ALERTS_HIGH, "desc": "Number of high dependency alerts"},
                 {"name": cls.DEPENDENCY_ALERTS_MODERATE, "desc": "Number of moderate dependency alerts"},
                 {"name": cls.DEPENDENCY_ALERTS_LOW, "desc": "Number of low dependency alerts"},
+                {"name": cls.MCP_SERVER_RUNTIME, "desc": "MCP server runtime type (e.g., uv, npx, unknown)"},
             ]
 
     class AgentsHub:
@@ -87,6 +91,8 @@ DEPENDENCY_ALERTS_CRITICAL = Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICA
 DEPENDENCY_ALERTS_HIGH = Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH
 DEPENDENCY_ALERTS_MODERATE = Constants.AlertProperties.DEPENDENCY_ALERTS_MODERATE
 DEPENDENCY_ALERTS_LOW = Constants.AlertProperties.DEPENDENCY_ALERTS_LOW
+
+MCP_SERVER_RUNTIME = Constants.AlertProperties.MCP_SERVER_RUNTIME
 
 MCP_AGENTS_HUB_REPO_URL = Constants.AgentsHub.MCP_AGENTS_HUB_REPO_URL
 LOCAL_REPO_PATH = Constants.AgentsHub.LOCAL_REPO_PATH
