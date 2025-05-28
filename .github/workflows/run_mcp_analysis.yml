@@ -49,16 +49,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11' # Use a specific Python version
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip # The directory to cache
-          # Create a unique key based on runner OS, Python version, and requirements.txt hash
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          # Fallback keys if the exact key is not found
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: 'pip' # Cache the Python package installer
 
       - name: Setup virtual environment and install dependencies
         run: |
