@@ -40,7 +40,8 @@ jobs:
       contents: read # For the checkout action
       issues: write # For reading and creating issues on MCP analysis failures
     env:
-      DEFAULT_NUMBER_OF_REPOS: 500
+      # Use 50 repos for push/PR triggers, 500 for scheduled runs
+      DEFAULT_NUMBER_OF_REPOS: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && '50' || '500' }}
 
     steps:
       - name: Checkout code

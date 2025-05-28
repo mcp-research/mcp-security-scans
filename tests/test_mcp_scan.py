@@ -131,6 +131,52 @@ class TestMcpScan(unittest.TestCase):
         else:
             self.fail("get_composition_info returned None, expected a result containing 'npx'.")
 
+    def test_malformed_json_missing_closing_bracket(self):
+        """Test that malformed JSON missing closing brackets is handled gracefully."""
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            # Create a README.md file with malformed JSON (missing final closing bracket)
+            malformed_content = '''# Ableton Live MCP Server
+
+This is an example of malformed JSON:
+
+```json
+{
+  "mcpServers": {
+    "Ableton Live Controller": {
+      "command": "/path/to/your/project/.venv/bin/python",
+      "args": ["/path/to/your/project/mcp_ableton_server.py"]
+    }
+  
+```
+
+Notice the missing closing bracket.'''
+            
+            readme_file = temp_dir / "README.md"
+            with open(readme_file, 'w') as f:
+                f.write(malformed_content)
+            
+            # Test the fix behavior
+            composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+            
+            # After fix: should return valid composition with no error
+            self.assertIsNotNone(composition, "Expected composition to be parsed after fixing malformed JSON")
+            self.assertIsNone(error_details, "Expected no error details after successful fix")
+            
+            # Verify the composition structure
+            self.assertIn("mcpServers", composition, "'mcpServers' key missing in fixed composition")
+            self.assertIn("AbletonLiveController", composition["mcpServers"], "Expected server name missing")
+            
+            # Verify the specific content was preserved
+            server_config = composition["mcpServers"]["AbletonLiveController"]
+            self.assertEqual(server_config["command"], "/path/to/your/project/.venv/bin/python")
+            self.assertEqual(server_config["args"], ["/path/to/your/project/mcp_ableton_server.py"])
+            
+            logging.info(f"Successfully fixed and parsed malformed JSON: [{composition}]")
+        finally:
+            # Clean up
+            shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     unittest.main()
