@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import ast
 import datetime
 import json
 import logging
 import mimetypes
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -382,8 +384,6 @@ def preprocess_json_string(json_str: str) -> str:
     Returns:
         A preprocessed JSON string that should be valid JSON
     """
-    import re
-    
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', json_str)
     fixed_str = re.sub(r'": ,', '":"",', fixed_str)
@@ -514,13 +514,11 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                     logging.debug(f"Failed to parse JSON with preprocessing: {e}")
                                     try:
                                         # Try to evaluate as a raw string (useful for escaped sequences)
-                                        import ast
                                         raw_str = ast.literal_eval(f"'''{json_str}'''")
                                         mcp_composition = json.loads(raw_str)
                                     except Exception as e:
                                         # If all attempts fail, try one more approach: remove env object completely
                                         try:
-                                            import re
                                             # Find "env": { ... } and replace it with "env": {}
                                             simplified_json = re.sub(r'"env"\s*:\s*\{[^}]*\}', '"env": {}', json_str)
                                             mcp_composition = json.loads(simplified_json)
