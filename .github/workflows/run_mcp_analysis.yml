@@ -48,18 +48,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Use a specific Python version
-          cache: 'pip' # Enable pip cache in setup-python
-
-      - name: Cache virtual environment dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip # The directory to cache
-          # Create a unique key based on runner OS, Python version, and requirements.txt hash
-          key: ${{ runner.os }}-venv-pip-${{ hashFiles('**/requirements.txt') }}
-          # Fallback keys if the exact key is not found
-          restore-keys: |
-            ${{ runner.os }}-venv-pip-
+          python-version: '3.11'
+          cache: 'pip'
 
       - name: Setup virtual environment and install dependencies
         run: |
