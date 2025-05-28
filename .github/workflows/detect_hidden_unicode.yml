@@ -1,0 +1,157 @@
+name: Detect Hidden Unicode Characters
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+jobs:
+  detect-hidden-unicode:
+    runs-on: ubuntu-latest
+    # Only run this job if we're in the actual repository context, not in forks
+    if: github.repository == 'mcp-research/mcp-security-scans'
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Detect hidden Unicode characters
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const eventName = context.eventName;
+            let content = '';
+            let targetId = '';
+            let targetType = '';
+            
+            // Determine the content to check and target ID based on event type
+            if (eventName === 'issues') {
+              content = context.payload.issue.title + '\n' + context.payload.issue.body;
+              targetId = context.payload.issue.number;
+              targetType = 'issue';
+            } else if (eventName === 'pull_request') {
+              content = context.payload.pull_request.title + '\n' + context.payload.pull_request.body;
+              targetId = context.payload.pull_request.number;
+              targetType = 'pull_request';
+            } else if (eventName === 'issue_comment' || eventName === 'pull_request_review_comment') {
+              content = context.payload.comment.body;
+              targetId = context.payload.issue ? context.payload.issue.number : context.payload.pull_request.number;
+              targetType = context.payload.issue ? 'issue' : 'pull_request';
+            }
+
+            // Skip if no content to analyze
+            if (!content) {
+              console.log('No content to analyze');
+              return;
+            }
+
+            // Define detection functions
+            function detectHiddenUnicode(text) {
+              const results = {
+                found: false,
+                detections: [],
+                sanitized: ''
+              };
+              
+              // Array of problematic character ranges and individual characters
+              const problematicRanges = [
+                // Zero-width characters
+                { name: 'Zero-width space', start: 0x200B, end: 0x200B },
+                { name: 'Zero-width non-joiner', start: 0x200C, end: 0x200C },
+                { name: 'Zero-width joiner', start: 0x200D, end: 0x200D },
+                { name: 'Word joiner', start: 0x2060, end: 0x2060 },
+                { name: 'Left-to-right mark', start: 0x200E, end: 0x200E },
+                { name: 'Right-to-left mark', start: 0x200F, end: 0x200F },
+                
+                // Bidirectional text control characters
+                { name: 'Right-to-left override', start: 0x202E, end: 0x202E },
+                { name: 'Left-to-right override', start: 0x202D, end: 0x202D },
+                { name: 'Right-to-left embedding', start: 0x202B, end: 0x202B },
+                { name: 'Left-to-right embedding', start: 0x202A, end: 0x202A },
+                { name: 'Pop directional formatting', start: 0x202C, end: 0x202C },
+
+                // Other control characters
+                { name: 'Soft hyphen', start: 0x00AD, end: 0x00AD },
+                
+                // Invisible formatting characters
+                { name: 'Function application', start: 0x2061, end: 0x2064 },
+                
+                // Variation selectors
+                { name: 'Variation selector', start: 0xFE00, end: 0xFE0F },
+              ];
+
+              // Process the text character by character
+              const sanitizedChars = [];
+              for (let i = 0; i < text.length; i++) {
+                const char = text.charAt(i);
+                const code = char.charCodeAt(0);
+                let detected = false;
+
+                // Check against problematic ranges
+                for (const range of problematicRanges) {
+                  if (code >= range.start && code <= range.end) {
+                    results.found = true;
+                    detected = true;
+                    results.detections.push({
+                      position: i,
+                      character: char,
+                      code: '0x' + code.toString(16).toUpperCase(),
+                      name: range.name
+                    });
+                    sanitizedChars.push('[HIDDEN-CHAR]');
+                    break;
+                  }
+                }
+                
+                // If not detected as problematic, keep the character as is
+                if (!detected) {
+                  sanitizedChars.push(char);
+                }
+              }
+              
+              results.sanitized = sanitizedChars.join('');
+              return results;
+            }
+            
+            // Run detection
+            const detection = detectHiddenUnicode(content);
+            
+            // If hidden Unicode is found, post a comment
+            if (detection.found) {
+              console.log(`Hidden Unicode characters detected in ${targetType} #${targetId}`);
+              
+              // Build the comment message
+              let commentBody = `## ⚠️ Security Alert: Hidden Unicode Characters Detected\n\n`;
+              commentBody += `This ${targetType} contains hidden or invisible Unicode characters that could be used maliciously.\n\n`;
+              
+              commentBody += `### Detected Characters:\n`;
+              detection.detections.forEach(d => {
+                commentBody += `- Position ${d.position}: ${d.name} (Unicode ${d.code})\n`;
+              });
+              
+              commentBody += `\n### Content with Hidden Characters Marked:\n`;
+              commentBody += '```\n' + detection.sanitized + '\n```\n\n';
+              
+              commentBody += `### Security Implications:\n`;
+              commentBody += `Hidden Unicode characters can be used to disguise malicious content or instructions. `;
+              commentBody += `They may create text that appears one way visually but contains hidden elements that could be processed differently by systems or mislead users.`;
+              
+              // Post the comment
+              const commentParams = {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: targetId,
+                body: commentBody
+              };
+              
+              await github.rest.issues.createComment(commentParams);
+              console.log(`Posted warning comment on ${targetType} #${targetId}`);
+            } else {
+              console.log(`No hidden Unicode characters detected in ${targetType} #${targetId}`);
+            }
