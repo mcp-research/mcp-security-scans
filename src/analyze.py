@@ -482,7 +482,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                     error_details = {
                                         "repo_path": str(local_repo_path),
                                         "filename": file_path,
-                                        "json_config": original_content,  # Use the original content for better context
+                                        "json_config": json_str,  # Use only the extracted JSON configuration
                                         "error_message": error_msg
                                     }
                                     mcp_composition = None
