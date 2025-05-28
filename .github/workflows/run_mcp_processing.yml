@@ -47,15 +47,14 @@ jobs:
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
           NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
         run: |
-          TARGET_ORG_ARG=""
+          PY_ARGS=()
           # Only add the argument if the input is not empty and not the default (to let the script handle the default)
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
-            TARGET_ORG_ARG="--target-org $TARGET_ORG_INPUT"
+            PY_ARGS+=( --target-org "$TARGET_ORG_INPUT" )
           fi
 
           # Determine the number of repos argument or use the default
-          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-50}"
+          PY_ARGS+=( --num-repos "${NUM_REPOS_INPUT:-50}" )
 
-          echo "Running script with arguments. Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG]"
-          python -m src.process_mcp_repos $TARGET_ORG_ARG $NUM_REPOS_ARG
-
+          echo "Running script with arguments: [${PY_ARGS[*]}]"
+          python -m src.process_mcp_repos "${PY_ARGS[@]}"

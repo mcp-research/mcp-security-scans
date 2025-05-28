@@ -53,7 +53,7 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
         logging.error(f"JSON directory not found: [{json_dir}]")
         return []
 
-    server_repo = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
+    server_repo = sorted(list(json_dir.glob("*.json")))  # Sort for consistent runs
     if not server_repo:
         logging.warning(f"No JSON files found in [{json_dir}]")
         return []
@@ -321,8 +321,8 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
             gh.rest.repos.update_branch(
                 owner=target_org,
                 repo=target_repo_name,
-                branch=fork_default_branch, # update the default branch
-                expected_head=fork_default_branch # ensure the branch is at the default head
+                branch=fork_default_branch,  # update the default branch
+                expected_head=fork_default_branch  # ensure the branch is at the default head
             )
             logging.info(f"Successfully updated forked repository: [{target_org}/{target_repo_name}]")
     except RequestFailed as e:
@@ -334,11 +334,11 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
 def process_repository(
     existing_repos: list[FullRepository],
     github_url: str,
-    gh: Any, # Replace Any with the actual type of the GitHub client
+    gh: Any,  # Replace Any with the actual type of the GitHub client
     target_org: str,
     existing_repos_properties: list[dict],
     processed_repos: set[str],
-    failed_forks: dict[str, str] # Changed to dict to store repo name -> failure reason
+    failed_forks: dict[str, str]   # Changed to dict to store repo name -> failure reason
 ) -> tuple[int, int, bool, bool]:
     """
     Processes a single repository based on data from a JSON file.
@@ -359,7 +359,7 @@ def process_repository(
     dependabot_increment = 0
     skipped_non_fork = False
     failed_fork = False
-    source_repo_full_name = None  # Keep track of the source repo name for adding to the set
+    source_repo_full_name = None   # Keep track of the source repo name for adding to the set
 
     try:
         if not github_url:
@@ -443,7 +443,7 @@ def process_repository(
             "HasDependabotConfig": dependabot_configured
         }
         update_repository_properties(gh, target_org, target_repo_name, properties_to_update)
-        processed_increment = 1 # Mark as successfully processed *this run*
+        processed_increment = 1  # Mark as successfully processed *this run*
 
     except json.JSONDecodeError:
         error_reason = f"Invalid JSON in file {json_file_path.name}"
@@ -462,11 +462,10 @@ def process_repository(
     # Return all counts and flags
     return processed_increment, dependabot_increment, skipped_non_fork, failed_fork
 
+
 # Main Logic
-
-
 def main():
-    start_time = datetime.datetime.now() # Record start time
+    start_time = datetime.datetime.now()  # Record start time
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
     # Removed app-id and private-key-path arguments
     parser.add_argument("--target-org", default=TARGET_ORG, help=f"Target GitHub organization to fork into (default: {TARGET_ORG})")
@@ -492,7 +491,7 @@ def main():
         # Load all existing repos from the target org
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
-        initial_repo_count = len(existing_repos) # Store initial count
+        initial_repo_count = len(existing_repos)  # Store initial count
 
         # Use all registered MCP server loaders to collect JSON files
         all_server_repos = []
@@ -509,7 +508,7 @@ def main():
                 all_server_repos.extend(server_files_from_loader)
             else:
                 source_counts[source_name] = 0
-        
+
         # Deduplicate JSON files (in case multiple sources have the same file)
         all_server_repos = sorted(list(set(all_server_repos)))
 
@@ -553,13 +552,13 @@ def main():
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
             if processed_inc or skipped_non_fork or failed_fork:  # Log separator only if something happened
-                logging.info("")
+              logging.info("")
 
         # Reporting
         logging.info("")
         end_time = datetime.datetime.now()  # Record end time
         duration = end_time - start_time
-        final_repo_count = len(list_all_repositories_for_org(gh, args.target_org)) # Get updated count
+        final_repo_count = len(list_all_repositories_for_org(gh, args.target_org))  # Get updated count
 
         # Prepare summary messages
         summary_lines = [

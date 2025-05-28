@@ -38,10 +38,7 @@ class TestForkFailures(unittest.TestCase):
         # Verify the result
         self.assertFalse(fork_exists)
         self.assertFalse(fork_skipped)
-        self.assertTrue(
-            "not found" in failure_reason.lower()
-            or "not accessible" in failure_reason.lower()
-        )
+        self.assertTrue("not found" in failure_reason.lower() or "not accessible" in failure_reason.lower())
 
 
 if __name__ == "__main__":
