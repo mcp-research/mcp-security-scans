@@ -19,17 +19,17 @@ def generate_shell_constants():
         f"GHAS_STATUS_UPDATED=\"{Constants.ScanSettings.GHAS_STATUS_UPDATED}\"",
         ""
     ]
-    
+
     # Add properties section header
     lines.append("# Repository property names")
     lines.append("")
-    
+
     # Dynamically add all alert properties
     for prop in Constants.AlertProperties.get_all_properties():
         lines.append(f"# {prop['desc']}")
         lines.append(f"{prop['name'].upper()}=\"{prop['name']}\"")
         lines.append("")
-    
+
     return "\n".join(lines)
 
 if __name__ == "__main__":
