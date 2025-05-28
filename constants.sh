@@ -12,9 +12,6 @@ GHAS_STATUS_UPDATED="GHAS_Status_Updated"
 # Total number of code scanning alerts
 CODEALERTS="CodeAlerts"
 
-# Total number of secret scanning alerts
-SECRETALERTS="SecretAlerts"
-
 # Total number of dependency alerts
 DEPENDENCYALERTS="DependencyAlerts"
 

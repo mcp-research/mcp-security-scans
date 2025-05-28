@@ -136,7 +136,7 @@ class TestShouldScanRepository(unittest.TestCase):
         }
         self.assertTrue(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
-    def test_secret_alerts_missing_total(self):
+    def test_missing_secret_total(self):
         """Test when secret alerts total is missing but types are present."""
         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
         properties = {
