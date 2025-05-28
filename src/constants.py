@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List
 
 class Constants:
     """Central class for all constants used in the MCP Security Scans project."""

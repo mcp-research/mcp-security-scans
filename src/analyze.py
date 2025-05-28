@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 from githubkit import GitHub
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
-from githubkit import GitHub
 
 from .functions import should_scan_repository
 from .github import (
@@ -337,18 +336,18 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             Constants.AlertProperties.CODE_ALERTS: code_alerts["total"],
             Constants.AlertProperties.SECRET_ALERTS: secret_alerts["total"],
             Constants.AlertProperties.DEPENDENCY_ALERTS: dependency_alerts["total"],
-            
+
             # Code scanning alerts by severity
             Constants.AlertProperties.CODE_ALERTS_CRITICAL: code_alerts["critical"],
             Constants.AlertProperties.CODE_ALERTS_HIGH: code_alerts["high"],
             Constants.AlertProperties.CODE_ALERTS_MEDIUM: code_alerts["medium"],
             Constants.AlertProperties.CODE_ALERTS_LOW: code_alerts["low"],
-            
+
             # Secret scanning alerts (only total for now)
             Constants.AlertProperties.SECRET_ALERTS_TOTAL: secret_alerts["total"],
             # Store secret types as a JSON string
             Constants.AlertProperties.SECRET_ALERTS_BY_TYPE: json.dumps(secret_alerts["types"]) if secret_alerts["types"] else "{}",
-            
+
             # Dependency scanning alerts by severity
             Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
             Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH: dependency_alerts["high"],
