@@ -169,13 +169,14 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             
             # Get secret alert types
             secret_types_json = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "{}")
-            try:
-                secret_types = json.loads(secret_types_json)
-                # Add to type totals
-                for secret_type, count in secret_types.items():
-                    secret_alerts_by_type[secret_type] += safe_int_convert(count)
-            except json.JSONDecodeError:
-                logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
+            if secret_types_json != "": 
+                try:
+                    secret_types = json.loads(secret_types_json)
+                    # Add to type totals
+                    for secret_type, count in secret_types.items():
+                        secret_alerts_by_type[secret_type] += safe_int_convert(count)
+                except json.JSONDecodeError:
+                    logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
             
             # Add to totals
             total_code_alerts += code_alerts
