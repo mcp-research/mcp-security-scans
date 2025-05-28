@@ -527,7 +527,7 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
         if "analysis-failure" in labels:
             # Create a search query that ignores specific character positions for JSON parsing errors
             search_title = title
-            
+
             # For JSON parsing errors, search without the specific position details
             if "Failed to parse MCP composition JSON" in title:
                 # Extract just the error type without line/column/char positions
@@ -540,9 +540,9 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
                 else:
                     # If regex doesn't match, just use the main error type
                     search_title = "Failed to parse MCP composition JSON"
-                
+
                 logging.info(f"Searching for JSON parsing errors with generic pattern: [{search_title}]")
-            
+
             # Search for existing issues with the same error type in the title
             search_query = f"repo:{owner}/{repo} is:issue is:open label:analysis-failure in:title {search_title}"
             logging.info(f"Searching for existing issues using query: [{search_query}]")
