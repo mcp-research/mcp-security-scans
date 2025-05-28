@@ -431,31 +431,58 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                         # if there was an opening bracket, find the start of the json string
                         start -= 1
 
+                        # Look for code block ending after the start position to limit our search scope
+                        code_block_end = stripped_content.find('```', start)
+                        if code_block_end != -1:
+                            # We found a code block ending, so limit our search to that area
+                            search_end_limit = code_block_end
+                            logging.debug(f"Found code block ending at position {code_block_end}, limiting search scope")
+                        else:
+                            # No code block ending found, search to end of content
+                            search_end_limit = len(stripped_content)
+
                         # find the end of the json string by counting all the next opening { and finding as much } chars
                         end = start
                         open_brackets = 1
                         close_brackets = 0
                         while open_brackets != close_brackets:
                             end += 1
-                            # Check if we've reached the end of the content
-                            if end >= len(stripped_content):
-                                error_msg = "Malformed JSON: Unclosed brackets in file"
-                                logging.error(error_msg)
-                                error_details = {
-                                    "repo_path": str(local_repo_path),
-                                    "filename": file_path,
-                                    "json_config": stripped_content[start:],  # Include everything from start
-                                    "error_message": error_msg
-                                }
-                                mcp_composition = None
-                                break
+                            # Check if we've reached the search limit (code block end or content end)
+                            if end >= search_end_limit:
+                                # Calculate missing closing brackets
+                                missing_brackets = open_brackets - close_brackets
+                                logging.warning(f"Malformed JSON: Missing [{missing_brackets}] closing brackets in file [{file_path}]. "
+                                               f"Attempting to fix...")
+
+                                # Try to fix the JSON by adding missing closing brackets
+                                # Use the content up to where we stopped (code block end or content end)
+                                json_str = stripped_content[start:end] + ('}' * missing_brackets)
+                                logging.info("Attempting to parse JSON with added closing brackets")
+
+                                try:
+                                    # Try to parse the fixed JSON
+                                    mcp_composition = json.loads(json_str)
+                                    logging.info(f"Successfully parsed fixed JSON in file [{file_path}]")
+                                    break  # Success, exit the bracket counting loop
+                                except json.JSONDecodeError as e:
+                                    # If fixing doesn't work, fall back to original error behavior
+                                    error_msg = "Malformed JSON: Unclosed brackets in file"
+                                    logging.error(f"Failed to parse even after adding closing brackets: {e}")
+                                    error_details = {
+                                        "repo_path": str(local_repo_path),
+                                        "filename": file_path,
+                                        "json_config": stripped_content[start:end],  # Include content up to where we stopped
+                                        "error_message": error_msg
+                                    }
+                                    mcp_composition = None
+                                    break
                             if stripped_content[end] == '{':
                                 open_brackets += 1
                             elif stripped_content[end] == '}':
                                 close_brackets += 1
 
-                        # If we didn't break out due to error
-                        if error_details is None:
+                        # If we didn't break out due to error and haven't already parsed the composition
+                        if error_details is None and mcp_composition is None:
                             # extract the json string
                             json_str = stripped_content[start:end + 1]
                             logging.info(f"Found MCP composition in file [{file_path}]")
