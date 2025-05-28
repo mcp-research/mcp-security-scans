@@ -47,8 +47,8 @@ def get_installation_github_client(
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")
 
         # Create an installation access token
-        token_response = gh_app.rest.apps.create_installation_access_token(
-            installation_id=installation_id
+        token_response = gh_app.rest.apps.create_installation_access_token (
+            installation_id = installation_id
         )
         token_data = token_response.parsed_data
 
@@ -302,7 +302,7 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         if e.response.status_code == 422:
              logging.error(f"Failed to update custom properties {property_names} for [{target_org}/{target_repo_name}] with 422 Unprocessable Entity.")
              logging.error("This often means one or more custom property names do not exist for the organization/repo or a value is invalid for its property type.")
-             logging.error(f"Error details: {e.response.json()}") # Log the response body if available
+             logging.error(f"Error details: {e.response.json()}")  # Log the response body if available
         handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
         raise
     except Exception as e:
@@ -477,7 +477,7 @@ def show_rate_limit(gh: GitHub):
         reset_timestamp = core_limit["reset"]
         # Convert Unix timestamp to readable datetime
         reset_datetime = datetime.fromtimestamp(reset_timestamp)
-        reset_str = reset_datetime.strftime("%Y-%m-%d %H:%M:%S %Z") # Format the datetime
+        reset_str = reset_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")  # Format the datetime
         logging.info(f"Rate Limit Info: Core - Limit: {core_limit['limit']}, Remaining: {core_limit['remaining']}, Reset: {reset_str}")
     except RequestFailed as e:
         handle_github_api_error(e, "fetching rate limit status")

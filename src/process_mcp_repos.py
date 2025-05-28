@@ -53,7 +53,7 @@ def load_mcp_servers_from_mcp_agents_hub() -> list[Path]:
         logging.error(f"JSON directory not found: [{json_dir}]")
         return []
 
-    server_repo = sorted(list(json_dir.glob("*.json"))) # Sort for consistent runs
+    server_repo = sorted(list(json_dir.glob("*.json")))  # Sort for consistent runs
     if not server_repo:
         logging.warning(f"No JSON files found in [{json_dir}]")
         return []
@@ -315,8 +315,8 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
             gh.rest.repos.update_branch(
                 owner=target_org,
                 repo=target_repo_name,
-                branch=fork_default_branch, # update the default branch
-                expected_head=fork_default_branch # ensure the branch is at the default head
+                branch=fork_default_branch,  # update the default branch
+                expected_head=fork_default_branch  # ensure the branch is at the default head
             )
             logging.info(f"Successfully updated forked repository: [{target_org}/{target_repo_name}]")
     except RequestFailed as e:
@@ -327,11 +327,11 @@ def update_forked_repo(gh: Any, target_org: str, target_repo_name: str):
 def process_repository(
     existing_repos: list[FullRepository],
     github_url: str,
-    gh: Any, # Replace Any with the actual type of the GitHub client
+    gh: Any,  # Replace Any with the actual type of the GitHub client
     target_org: str,
     existing_repos_properties: list[dict],
     processed_repos: set[str],
-    failed_forks: dict[str, str] # Changed to dict to store repo name -> failure reason
+    failed_forks: dict[str, str]   # Changed to dict to store repo name -> failure reason
 ) -> tuple[int, int, bool, bool]:
     """
     Processes a single repository based on data from a JSON file.
@@ -352,7 +352,7 @@ def process_repository(
     dependabot_increment = 0
     skipped_non_fork = False
     failed_fork = False
-    source_repo_full_name = None # Keep track of the source repo name for adding to the set
+    source_repo_full_name = None   # Keep track of the source repo name for adding to the set
 
     try:
         if not github_url:
@@ -362,7 +362,7 @@ def process_repository(
         source_owner, source_repo = extract_repo_owner_name(github_url)
         if not source_owner or not source_repo:
             logging.warning(f"Could not parse owner/repo from URL '[{github_url}]'.")
-            return 0, 0, False, False # No processing
+            return 0, 0, False, False  # No processing
 
         source_repo_full_name = f"{source_owner}/{source_repo}"
         if source_repo_full_name in processed_repos:
@@ -386,7 +386,7 @@ def process_repository(
                 logging.warning(f"Skipping GHAS enablement for [{target_org}/{target_repo_name}] as it's not the correct fork.")
                 # Add to processed_repos so we don't try again with this source
                 processed_repos.add(source_repo_full_name)
-                return 0, 0, skipped_non_fork, False # Return skipped status
+                return 0, 0, skipped_non_fork, False  # Return skipped status
             else:
                 # Fork creation/check genuinely failed.
                 failed_fork = True
@@ -394,7 +394,7 @@ def process_repository(
                 # Add to failed_forks with the specific reason
                 failed_forks[source_repo_full_name] = failure_reason or "Fork creation/check failed"
                 # Don't add to processed_repos because we might want to retry later
-                return 0, 0, False, failed_fork # Return failed status
+                return 0, 0, False, failed_fork  # Return failed status
 
         # --- If we reach here, fork_exists is True ---
 
@@ -436,7 +436,7 @@ def process_repository(
             "HasDependabotConfig": dependabot_configured
         }
         update_repository_properties(gh, target_org, target_repo_name, properties_to_update)
-        processed_increment = 1 # Mark as successfully processed *this run*
+        processed_increment = 1  # Mark as successfully processed *this run*
 
     except json.JSONDecodeError:
         error_reason = f"Invalid JSON in file {json_file_path.name}"
@@ -484,7 +484,7 @@ def main():
         # Load all existing repos from the target org
         existing_repos = list_all_repositories_for_org(gh, args.target_org)
         existing_repos_properties = list_all_repository_properties_for_org(gh, args.target_org)
-        initial_repo_count = len(existing_repos) # Store initial count
+        initial_repo_count = len(existing_repos)  # Store initial count
 
         # Use all registered MCP server loaders to collect JSON files
         all_server_repos = []
@@ -508,12 +508,12 @@ def main():
         logging.info(f"Found a total of [{len(all_server_repos)}] JSON files from all sources. Will process up to [{num_to_process}] repositories based on --num-repos.")
 
         # Process Repos
-        processed_repo_count = 0 # Counter for successfully processed repos (forked/found + GHAS attempted)
+        processed_repo_count = 0  # Counter for successfully processed repos (forked/found + GHAS attempted)
         dependabot_enabled_count = 0
-        processed_repos = set() # Keep track of processed source repos to avoid duplicates
-        skipped_non_fork_count = 0 # Track repos skipped because they exist but aren't the correct fork
-        failed_fork_count = 0 # Track repos where fork creation/check failed
-        failed_forks = dict() # Dict to collect repositories that failed to fork with reasons
+        processed_repos = set()  # Keep track of processed source repos to avoid duplicates
+        skipped_non_fork_count = 0  # Track repos skipped because they exist but aren't the correct fork
+        failed_fork_count = 0  # Track repos where fork creation/check failed
+        failed_forks = dict()  # Dict to collect repositories that failed to fork with reasons
 
         # Iterate over all JSON files until the desired number is processed
         for github_url in all_server_repos:
@@ -529,8 +529,8 @@ def main():
                 gh,
                 args.target_org,
                 existing_repos_properties,
-                processed_repos, # Pass the set (it will be modified in place)
-                failed_forks # Pass the dict to collect failed forks with reasons
+                processed_repos,  # Pass the set (it will be modified in place)
+                failed_forks  # Pass the dict to collect failed forks with reasons
             )
 
             # Update counters based on the result from the helper function
@@ -538,14 +538,14 @@ def main():
             dependabot_enabled_count += dependabot_inc
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
-            if processed_inc or skipped_non_fork or failed_fork: # Log separator only if something happened
+            if processed_inc or skipped_non_fork or failed_fork:  # Log separator only if something happened
                  logging.info("")
 
         # Reporting
         logging.info("")
-        end_time = datetime.datetime.now() # Record end time
+        end_time = datetime.datetime.now()  # Record end time
         duration = end_time - start_time
-        final_repo_count = len(list_all_repositories_for_org(gh, args.target_org)) # Get updated count
+        final_repo_count = len(list_all_repositories_for_org(gh, args.target_org))  # Get updated count
 
         # Prepare summary messages
         summary_lines = [
@@ -567,21 +567,21 @@ def main():
         # Add failed forks list with reasons if any exist
         if failed_forks:
             summary_lines.append("Failed Repository Details:")
-            for failed_repo, reason in sorted(failed_forks.items()): # Sort for consistent output
+            for failed_repo, reason in sorted(failed_forks.items()):  # Sort for consistent output
                 summary_lines.append(f"1. `{failed_repo}`: {reason}")
 
         # Log summary to console
         logging.info("Processing Summary")
-        for line in summary_lines[1:]: # Skip the markdown title for console
-            logging.info(line.replace('`', '').replace('*', '')) # Clean markdown for console
+        for line in summary_lines[1:]:  # Skip the markdown title for console
+            logging.info(line.replace('`', '').replace('*', ''))  # Clean markdown for console
         show_rate_limit(gh)
-        logging.info(f"Total execution time: [{duration}]") # Repeat duration for clarity
+        logging.info(f"Total execution time: [{duration}]")  # Repeat duration for clarity
 
         # Write summary to GITHUB_STEP_SUMMARY if available
         summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
         if summary_file_path:
             try:
-                with open(summary_file_path, "a") as summary_file: # Append mode
+                with open(summary_file_path, "a") as summary_file:  # Append mode
                     summary_file.write("\n".join(summary_lines) + "\n\n")
                 logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file: [{summary_file_path}]")
             except Exception as e:
