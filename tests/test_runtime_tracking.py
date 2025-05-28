@@ -67,7 +67,7 @@ class TestRuntimeTracking(unittest.TestCase):
         # Verify runtime tracking
         self.assertIn('runtime_types', stats)
         self.assertEqual(stats['runtime_types']['uv'], 2)
-        self.assertEqual(stats['runtime_types']['npx'], 2) 
+        self.assertEqual(stats['runtime_types']['npx'], 2)
         self.assertEqual(stats['runtime_types']['unknown'], 1)
         self.assertEqual(len(stats['runtime_types']), 3)
 
