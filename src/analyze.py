@@ -831,7 +831,6 @@ def main():
             f"- High: `{total_dependency_alerts_by_severity['high']}`",
             f"- Moderate: `{total_dependency_alerts_by_severity['moderate']}`",
             f"- Low: `{total_dependency_alerts_by_severity['low']}`",
-            "",
             f"- Total execution time: `{duration}`",
             f"- Failed analysis repositories: `{len(failed_analysis_repos)}`"
         ]
