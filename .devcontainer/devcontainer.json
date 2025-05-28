@@ -36,8 +36,8 @@
             }
         }
     },
-    "postCreateCommand": "pip install --upgrade pip && pip install -e . && pip install -r requirements.txt && pip install -r requirements-dev.txt",
-    "postStartCommand": "pip install -r requirements-dev.txt",
+    "postCreateCommand": "pip install --upgrade pip && pip install -e .",
+    "postStartCommand": "pip install -r requirements.txt && pip install -r requirements-dev.txt",
     "remoteUser": "vscode",
     "features": {
         "ghcr.io/devcontainers/features/git:1": {
