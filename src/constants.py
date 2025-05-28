@@ -5,39 +5,39 @@ from typing import Dict, List, Any
 
 class Constants:
     """Central class for all constants used in the MCP Security Scans project."""
-    
+
     class Org:
         """Organization related constants"""
         TARGET_ORG = "mcp-research"  # The organization to scan
-    
+
     class ScanSettings:
         """Scan frequency and related settings"""
         SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
         GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
-    
+
     class AlertProperties:
         """Repository property names for alert counts"""
         # Total alert counts
         CODE_ALERTS = "CodeAlerts"
-        SECRET_ALERTS = "SecretAlerts" 
+        SECRET_ALERTS = "SecretAlerts"
         DEPENDENCY_ALERTS = "DependencyAlerts"
-        
+
         # Code scanning alert severity levels
         CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
         CODE_ALERTS_HIGH = "CodeAlerts_High"
         CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
         CODE_ALERTS_LOW = "CodeAlerts_Low"
-        
+
         # Secret scanning alerts (no standard severity levels)
         SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
         SECRET_ALERTS_BY_TYPE = "SecretAlerts_By_Type"
-        
+
         # Dependency alert severity levels
         DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
         DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
         DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
         DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
-        
+
         @classmethod
         def get_all_properties(cls) -> List[Dict[str, str]]:
             """Return all property names as a list of dictionaries with name and description"""
@@ -56,14 +56,13 @@ class Constants:
                 {"name": cls.DEPENDENCY_ALERTS_MODERATE, "desc": "Number of moderate dependency alerts"},
                 {"name": cls.DEPENDENCY_ALERTS_LOW, "desc": "Number of low dependency alerts"},
             ]
-    
+
     class AgentsHub:
         """MCP Agents Hub repository constants"""
         MCP_AGENTS_HUB_REPO_URL = "https://github.com/mcp-agents-ai/mcp-agents-hub.git"
         LOCAL_REPO_PATH = Path("./cloned_mcp_agents_hub")
-        SERVER_FILES_DIR_IN_REPO = "server/src/data/split"
-        SERVER_FILES_DIR_PATH = Path(SERVER_FILES_DIR_IN_REPO)
-    
+        SERVER_FILES_DIR_PATH = Path("server/src/data/split")
+
     class Reports:
         """Report-related constants"""
         REPORT_DIR = "reports"  # Directory to save reports
@@ -94,7 +93,6 @@ DEPENDENCY_ALERTS_LOW = Constants.AlertProperties.DEPENDENCY_ALERTS_LOW
 
 MCP_AGENTS_HUB_REPO_URL = Constants.AgentsHub.MCP_AGENTS_HUB_REPO_URL
 LOCAL_REPO_PATH = Constants.AgentsHub.LOCAL_REPO_PATH
-SERVER_FILES_DIR_IN_REPO = Constants.AgentsHub.SERVER_FILES_DIR_IN_REPO
 SERVER_FILES_DIR_PATH = Constants.AgentsHub.SERVER_FILES_DIR_PATH
 
 REPORT_DIR = Constants.Reports.REPORT_DIR
