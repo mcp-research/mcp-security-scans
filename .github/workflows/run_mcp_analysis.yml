@@ -79,21 +79,21 @@ jobs:
           # Activate the virtual environment
           source venv/bin/activate
           
-          TARGET_ORG_ARG=""
-          # Only add the argument if the input is not empty and not the default (to let the script handle the default)
+          # Start with an empty array for arguments
+          PY_ARGS=()
+          
+          # Only add the argument if the input is not empty and not the default
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
-            TARGET_ORG_ARG="--target-org $TARGET_ORG_INPUT"
+            PY_ARGS+=( --target-org "$TARGET_ORG_INPUT" )
           fi
-
-          # Determine the number of repos argument
-          NUM_REPOS_ARG="--num-repos ${NUM_REPOS_INPUT:-$DEFAULT_NUMBER_OF_REPOS}"
+          
+          # Add the number of repos argument
+          PY_ARGS+=( --num-repos "${NUM_REPOS_INPUT:-$DEFAULT_NUMBER_OF_REPOS}" )
           
           # Add verbose flag if selected
-          VERBOSE_ARG=""
           if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
-            VERBOSE_ARG="--verbose"
+            PY_ARGS+=( --verbose )
           fi
-
-          echo "Running analysis script with arguments: Target org: [$TARGET_ORG_ARG], Number of repos: [$NUM_REPOS_ARG], Verbose: [$VERBOSE_ARG]"
-          # Run the script as a module rather than a direct script to handle the relative imports correctly
-          python -m src.analyze "$TARGET_ORG_ARG" "$NUM_REPOS_ARG" "$VERBOSE_ARG"
+          
+          echo "Running analysis script with arguments: [${PY_ARGS[@]}]"
+          python -m src.analyze "${PY_ARGS[@]}"
