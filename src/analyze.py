@@ -12,6 +12,7 @@ import mimetypes
 from dotenv import load_dotenv
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
+from githubkit import GitHub
 
 # Import the local functions
 from .github import (
@@ -628,9 +629,9 @@ def main():
                 if github_token:
                     # Create a GitHub client authenticated with the token for issue creation
                     token_auth_gh = GitHub(github_token)
-                    logging.info("Created GitHub client with token for issue creation")
+                    logging.info("Created GitHub client with token for issue creation if needed")
                 else:
-                    logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures.")
+                    logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
 
                 # clone the repo to a temp directory
                 local_repo_path = Path(f"tmp/{repo.name}")
