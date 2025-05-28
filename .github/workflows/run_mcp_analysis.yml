@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read # For the checkout action
+      issues: write # For reading and creating issues on MCP analysis failures
     env:
       DEFAULT_NUMBER_OF_REPOS: 500
 
