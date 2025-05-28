@@ -18,6 +18,7 @@ logging.error(f"Unexpected error enabling GHAS features for {owner}/{repo}: {e}"
 
 ## Import Statements
 
+Always add import statements at the top of the file, never in the middle of the file.
 When you add a new import, do not add a comment to that line:
 
 ```python
