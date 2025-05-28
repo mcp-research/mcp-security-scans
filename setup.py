@@ -11,4 +11,7 @@ setup(
         "python-dotenv",
         "GitPython",
     ],
+    extras_require={
+        "dev": ["flake8>=7.2.0"],
+    },
 )

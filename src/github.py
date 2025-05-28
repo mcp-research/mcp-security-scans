@@ -1,16 +1,19 @@
 import logging
-from datetime import datetime
-from githubkit import GitHub, AppInstallationAuthStrategy
-from git import Repo, GitCommandError
-from githubkit.exception import RequestError, RequestFailed
-from pathlib import Path
-from urllib.parse import urlparse
-from githubkit.versions.latest.models import FullRepository
-from typing import Any
 import os
 import subprocess
-import magic
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+from git import Repo, GitCommandError
+from githubkit import GitHub, AppInstallationAuthStrategy
+from githubkit.exception import RequestError, RequestFailed
+from githubkit.versions.latest.models import FullRepository
+import magic
+
+from .functions import is_running_interactively
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -36,12 +39,23 @@ def get_installation_github_client(
     """
     try:
         # Find the installation ID for the target organization
-        installations = gh_app.rest.apps.list_installations().json()
+        response = gh_app.rest.apps.list_installations()
+        installations = response.parsed_data
         installation_id = None
-        for inst in installations:
-            if inst.get("account", {}).get("login") == target_org:
-                installation_id = inst["id"]
-                break
+
+        if not installations:
+            raise ValueError("No GitHub App installations found")
+
+        for installation in installations:
+            try:
+                if (
+                    installation.account
+                    and getattr(installation.account, "login", None) == target_org
+                ):
+                    installation_id = installation.id
+                    break
+            except Exception:
+                continue
 
         if not installation_id:
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")
@@ -302,11 +316,23 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         if e.response.status_code == 422:
              logging.error(f"Failed to update custom properties {property_names} for [{target_org}/{target_repo_name}] with 422 Unprocessable Entity.")
              logging.error("This often means one or more custom property names do not exist for the organization/repo or a value is invalid for its property type.")
-             logging.error(f"Error details: {e.response.json()}")  # Log the response body if available
+             logging.error(f"Error details: {e.response.json()}")  # Log the response body if available             
+             # Show more detailed information when running interactively
+             if is_running_interactively():
+                logging.error("Detailed property values that caused the error:")
+                for idx, prop in enumerate(custom_properties_list):
+                    logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
         handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
         raise
     except Exception as e:
         logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
+        
+        # Show more detailed information when running interactively
+        if is_running_interactively():
+            logging.error("Detailed property values that caused the error:")
+            for idx, prop in enumerate(custom_properties_list):
+                logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+        
         raise
 
 def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, existing_repos_properties: list[dict]) -> dict[str, Any]:

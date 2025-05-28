@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-import unittest
-from unittest.mock import patch, MagicMock
-import io
 import os
 import sys
-import logging
-from pathlib import Path
+import unittest
+from unittest.mock import patch, MagicMock
+
 import requests
 
 # Add the src directory to the path so we can import from it
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Import the function to test
 from src.process_mcp_repos import load_mcp_servers_from_awesome_mcp_servers
 
 class TestAwesomeMcpServersLoader(unittest.TestCase):

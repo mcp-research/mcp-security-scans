@@ -1,0 +1,83 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Process MCP Repos",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.process_mcp_repos",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "args": [
+                "--num-repos", "3"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            }
+        },
+        {
+            "name": "Analyze Repos",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.analyze",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "args": [
+                "--num-repos", "3"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            }
+        },
+        {
+            "name": "Generate Report",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.report",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            }
+        },
+        {
+            "name": "All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "discover",
+                "tests"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            }
+        },
+        {
+            "name": "Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "tests.${fileBasenameNoExtension}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PATH": "${env:PATH}"
+            }
+        }
+    ]
+}

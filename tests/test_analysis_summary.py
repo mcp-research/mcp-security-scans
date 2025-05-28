@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 # Add the parent directory to the path so we can import the src module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -73,5 +73,5 @@ class TestAnalysisSummary(unittest.TestCase):
             expected = f"- {repo['name']}: {repo['reason']}"
             self.assertEqual(log_messages[i + 1], expected, f"Log line should contain correct format for {repo['name']}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

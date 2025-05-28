@@ -1,32 +1,39 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import logging
 import datetime
+import json
+import logging
+import mimetypes
+import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional
-import json
-import mimetypes
+from typing import Any, Dict, List, Optional, Tuple
+
 from dotenv import load_dotenv
+from githubkit import GitHub
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 from githubkit import GitHub
 
-# Import the local functions
-from .github import (
-    get_github_client, list_all_repositories_for_org,
-    list_all_repository_properties_for_org,
-    update_repository_properties, show_rate_limit, handle_github_api_error,
-    clone_repository, create_issue
-)
 from .functions import should_scan_repository
+from .github import (
+    get_github_client,
+    list_all_repositories_for_org,
+    list_all_repository_properties_for_org,
+    update_repository_properties,
+    show_rate_limit,
+    handle_github_api_error,
+    clone_repository,
+    create_issue,
+)
 
 # Configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("githubkit").setLevel(logging.DEBUG)  # Reduce verbosity from githubkit
-load_dotenv()  # Load environment variables from .env file
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logging.getLogger("githubkit").setLevel(logging.DEBUG)
+load_dotenv()
 
 # Constants
 TARGET_ORG = "mcp-research"  # The organization to scan
@@ -55,15 +62,16 @@ DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
 
 SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
 
+
 def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
     Gets the count of code scanning alerts for a repository, categorized by severity.
-    
+
     Args:
         gh: Authenticated GitHub client instance.
         owner: Owner of the repository.
         repo: Repository name.
-        
+
     Returns:
         Dictionary with counts of open code scanning alerts by severity.
     """
@@ -75,7 +83,7 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
         "medium": 0,
         "low": 0,
     }
-    
+
     try:
         # Get code scanning alerts with state=open
         alerts = list(gh.rest.paginate(
@@ -622,10 +630,11 @@ def main():
             if success:
                 scanned_repos += 1
 
-                # locate the default branch of the fork
-                # Get the GITHUB_TOKEN environment variable for issue creation
+                # Get the default branch and GitHub token
+                fork_default_branch = repo.default_branch if repo else "main"
                 github_token = os.getenv("GITHUB_TOKEN")
                 token_auth_gh = None
+
                 if github_token:
                     # Create a GitHub client authenticated with the token for issue creation
                     token_auth_gh = GitHub(github_token)
@@ -827,7 +836,9 @@ def main():
             try:
                 with open(summary_file_path, "a") as summary_file:  # Append mode
                     summary_file.write("\n".join(summary_lines) + "\n\n")
-                logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
+                logging.info(
+                    "Successfully appended summary to GITHUB_STEP_SUMMARY file"
+                )
             except Exception as e:
                 logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
         else:
