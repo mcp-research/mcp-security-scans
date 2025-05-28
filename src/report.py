@@ -253,8 +253,15 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
 
     # Write JSON report
     report_file = get_report_filename(target_org, output_dir, 'json')
+
+    # Create a copy of stats for JSON output, excluding sensitive data in CI
+    json_stats = stats.copy()
+    if os.getenv("CI"):
+        # Remove repository-specific alert data in CI environment to prevent leaking vulnerability info
+        json_stats.pop('repos_alerts', None)
+
     with open(report_file, 'w') as f:
-        json.dump(stats, f, indent=2)
+        json.dump(json_stats, f, indent=2)
     logging.info(f"JSON report saved to {report_file}")
 
     # Write Markdown report
