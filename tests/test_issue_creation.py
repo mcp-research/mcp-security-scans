@@ -115,6 +115,40 @@ class TestIssueCreation(unittest.TestCase):
         self.assertIn("error_message", error_details)
         self.assertIn("json_config", error_details)
         self.assertIn("No servers found", error_details["error_message"])
+    
+    @patch('src.github.GitHub')
+    def test_create_issue_json_parsing_error(self, mock_github_class):
+        """Test create_issue with similar JSON parsing errors at different positions."""
+        # Setup mock
+        mock_gh = MagicMock()
+        mock_search_response = MagicMock()
+        mock_search_response.json.return_value = {"total_count": 1}  # Found an existing issue
+        
+        mock_gh.rest.search.issues_and_pull_requests.return_value = mock_search_response
+        
+        # Call function with a JSON parsing error title (character position 119)
+        result = create_issue(
+            mock_gh,
+            "test-org",
+            "test-repo",
+            "Failed analysis: Failed to parse MCP composition JSON: Expecting ',' delimiter: line 1 column 119 (char 118)",
+            "This is a test issue body",
+            ["analysis-failure"]
+        )
+        
+        # Assert that a search was performed and no new issue was created
+        self.assertTrue(result)
+        mock_gh.rest.search.issues_and_pull_requests.assert_called_once()
+        
+        # Verify that the search query didn't include the exact character position
+        call_args = mock_gh.rest.search.issues_and_pull_requests.call_args[1]
+        self.assertIn('q', call_args)
+        search_query = call_args['q']
+        self.assertIn("Failed to parse MCP composition JSON", search_query)
+        self.assertNotIn("char 118", search_query)
+        self.assertNotIn("column 119", search_query)
+        
+        mock_gh.rest.issues.create.assert_not_called()  # Should not create a new issue
 
 if __name__ == "__main__":
     unittest.main()
