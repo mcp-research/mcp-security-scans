@@ -66,3 +66,6 @@ The project uses the following environment variables:
 - `GH_APP_PRIVATE_KEY`: GitHub App private key
 
 These can be set in your shell or through a `.env` file.
+
+## Coding guidelines
+Follow the flake8 coding guidelines for this project, see the [flake8 configuration](../.flake8) for the configured rules.

@@ -100,7 +100,7 @@ def load_mcp_servers_from_awesome_mcp_servers() -> List[str]:
 
         for line in lines:
             # Look for markdown links: [text](url)
-            if '](https://github.com/' in line and not '](#' in line:  # Exclude internal links
+            if '](https://github.com/' in line and '](#' not in line:  # Exclude internal links
                 start_idx = line.find('](https://github.com/') + 2  # Position after ](
                 end_idx = line.find(')', start_idx)
                 if end_idx > start_idx:
