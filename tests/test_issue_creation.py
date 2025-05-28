@@ -82,9 +82,21 @@ class TestIssueCreation(unittest.TestCase):
         test_dir = Path("tmp/test_scan_error")
         test_dir.mkdir(parents=True, exist_ok=True)
         
+        # Create a file with extra content before and after the JSON to test
+        # that only the JSON configuration is included in error details
+        file_content = '''This is documentation before the JSON.
+
+Some more text and comments.
+
+{"mcpServers": {"server1": {"command": "npx", "args": ["start"]},}}
+
+And this is documentation after the JSON.
+More comments here.
+'''
+        
         test_file = test_dir / "malformed_mcp.json"
         with open(test_file, 'w') as f:
-            f.write('{"mcpServers": {"server1": {"command": "npx", "args": ["start"]},}')  # Extra comma makes this invalid
+            f.write(file_content)
         
         # Call function under test
         composition, error_details = scan_repo_for_mcp_composition(test_dir)
@@ -98,6 +110,18 @@ class TestIssueCreation(unittest.TestCase):
         self.assertIn("error_message", error_details)
         self.assertIn("filename", error_details)
         self.assertIn("json_config", error_details)
+        
+        # Verify that only the JSON configuration is included, not the entire file content
+        json_config = error_details["json_config"]
+        self.assertNotIn("This is documentation before", json_config,
+                         "Error details should not include content before JSON")
+        self.assertNotIn("And this is documentation after", json_config,
+                         "Error details should not include content after JSON")
+        self.assertIn("mcpServers", json_config,
+                      "Error details should include the JSON configuration")
+        # Verify the JSON config is much shorter than the entire file
+        self.assertLess(len(json_config), len(file_content),
+                        "JSON config should be shorter than entire file content")
     
     def test_get_composition_info_error(self):
         """Test get_composition_info returns error details when analysis fails."""

@@ -489,7 +489,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                 # Calculate missing closing brackets
                                 missing_brackets = open_brackets - close_brackets
                                 logging.warning(f"Malformed JSON: Missing [{missing_brackets}] closing brackets in file [{file_path}]. "
-                                               f"Attempting to fix...")
+                                                f"Attempting to fix...")
 
                                 # Try to fix the JSON by adding missing closing brackets
                                 # Use the content up to where we stopped (code block end or content end)
@@ -525,9 +525,6 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                             logging.info(f"Found MCP composition in file [{file_path}]")
                             logging.debug(f"MCP composition: {json_str}")
 
-                            # Store the original file content for error reporting
-                            original_content = content
-
                             # read the object from the json string
                             try:
                                 # Try to load the cleaned JSON string
@@ -535,6 +532,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                             except json.JSONDecodeError as e:
                                 # First, try preprocessing the JSON to fix common issues
                                 try:
+                                    mcp_composition = None
                                     preprocessed_json = preprocess_json_string(json_str)
                                     mcp_composition = json.loads(preprocessed_json)
                                     logging.info(f"Successfully parsed JSON after preprocessing for [{file_path}]")
@@ -558,7 +556,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                             error_details = {
                                                 "repo_path": str(local_repo_path),
                                                 "filename": file_path,
-                                                "json_config": original_content,  # Use the original content for better context
+                                                "json_config": json_str,  # Use only the extracted JSON configuration
                                                 "error_message": error_msg
                                             }
                                             mcp_composition = None
@@ -568,7 +566,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                 error_details = {
                                     "repo_path": str(local_repo_path),
                                     "filename": file_path,
-                                    "json_config": original_content,  # Use the original content for better context
+                                    "json_config": json_str,  # Use only the extracted JSON configuration
                                     "error_message": error_msg
                                 }
                                 mcp_composition = None
