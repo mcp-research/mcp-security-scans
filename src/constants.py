@@ -19,7 +19,6 @@ class Constants:
         """Repository property names for alert counts"""
         # Total alert counts
         CODE_ALERTS = "CodeAlerts"
-        SECRET_ALERTS = "SecretAlerts"
         DEPENDENCY_ALERTS = "DependencyAlerts"
 
         # Code scanning alert severity levels
@@ -43,7 +42,6 @@ class Constants:
             """Return all property names as a list of dictionaries with name and description"""
             return [
                 {"name": cls.CODE_ALERTS, "desc": "Total number of code scanning alerts"},
-                {"name": cls.SECRET_ALERTS, "desc": "Total number of secret scanning alerts"},
                 {"name": cls.DEPENDENCY_ALERTS, "desc": "Total number of dependency alerts"},
                 {"name": cls.CODE_ALERTS_CRITICAL, "desc": "Number of critical code scanning alerts"},
                 {"name": cls.CODE_ALERTS_HIGH, "desc": "Number of high code scanning alerts"},
@@ -75,7 +73,6 @@ GHAS_STATUS_UPDATED = Constants.ScanSettings.GHAS_STATUS_UPDATED
 SCAN_FREQUENCY_DAYS = Constants.ScanSettings.SCAN_FREQUENCY_DAYS
 
 CODE_ALERTS = Constants.AlertProperties.CODE_ALERTS
-SECRET_ALERTS = Constants.AlertProperties.SECRET_ALERTS
 DEPENDENCY_ALERTS = Constants.AlertProperties.DEPENDENCY_ALERTS
 
 CODE_ALERTS_CRITICAL = Constants.AlertProperties.CODE_ALERTS_CRITICAL
