@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import ast
 import datetime
 import json
 import logging
 import mimetypes
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -365,6 +367,37 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, code_alerts, secret_alerts, dependency_alerts
 
+def preprocess_json_string(json_str: str) -> str:
+    """
+    Preprocesses a JSON string to fix common issues with MCP composition files.
+    
+    Fixes:
+    - Empty values after a colon (e.g., "key":,)
+    - Unquoted values like XXXXXX (placeholder values)
+    - Empty entries with missing values (e.g., "key")
+    
+    Args:
+        json_str: The JSON string to preprocess
+        
+    Returns:
+        A preprocessed JSON string that should be valid JSON
+    """
+    # Fix empty values after a colon (e.g., "key":,)
+    fixed_str = re.sub(r'":,', '":"",', json_str)
+    fixed_str = re.sub(r'": ,', '":"",', fixed_str)
+    
+    # Fix entries with nothing after the colon at the end of a line
+    fixed_str = re.sub(r'":(\s*})', '":""\\1', fixed_str)
+    fixed_str = re.sub(r'": (\s*})', '":""\\1', fixed_str)
+    
+    # Fix unquoted placeholder values like XXXXXX (not followed by a comma or closing brace)
+    fixed_str = re.sub(r': *([A-Za-z0-9]+)([,}])', r':"\\1"\\2', fixed_str)
+    
+    # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
+    fixed_str = re.sub(r'"([^"]+)"(\s*[,}])', r'"\1":""\\2', fixed_str)
+    
+    return fixed_str
+
 def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict], Optional[Dict]]:
     """
     Scans a repository for MCP composition configuration.
@@ -469,23 +502,45 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                 # Try to load the cleaned JSON string
                                 mcp_composition = json.loads(json_str)
                             except json.JSONDecodeError as e:
-                                # If first attempt fails, try parsing as a raw string literal
-                                logging.debug(f"Failed to parse JSON: {e}")
+                                # First, try preprocessing the JSON to fix common issues
                                 try:
-                                    # Try to evaluate as a raw string (useful for escaped sequences)
-                                    import ast
-                                    raw_str = ast.literal_eval(f"'''{json_str}'''")
-                                    mcp_composition = json.loads(raw_str)
-                                except Exception as e:
-                                    error_msg = f"Failed to parse MCP composition JSON: {e}"
-                                    logging.error(error_msg)
-                                    error_details = {
-                                        "repo_path": str(local_repo_path),
-                                        "filename": file_path,
-                                        "json_config": original_content,  # Use the original content for better context
-                                        "error_message": error_msg
-                                    }
-                                    mcp_composition = None
+                                    preprocessed_json = preprocess_json_string(json_str)
+                                    mcp_composition = json.loads(preprocessed_json)
+                                    logging.info(f"Successfully parsed JSON after preprocessing for [{file_path}]")
+                                except json.JSONDecodeError:
+                                    # If preprocessing fails, try parsing as a raw string literal
+                                    logging.debug(f"Failed to parse JSON with preprocessing: {e}")
+                                    try:
+                                        # Try to evaluate as a raw string (useful for escaped sequences)
+                                        raw_str = ast.literal_eval(f"'''{json_str}'''")
+                                        mcp_composition = json.loads(raw_str)
+                                    except Exception as e:
+                                        # If all attempts fail, try one more approach: remove env object completely
+                                        try:
+                                            # Find "env": { ... } and replace it with "env": {}
+                                            simplified_json = re.sub(r'"env"\s*:\s*\{[^}]*\}', '"env": {}', json_str)
+                                            mcp_composition = json.loads(simplified_json)
+                                            logging.info(f"Successfully parsed JSON after removing env object for [{file_path}]")
+                                        except Exception:
+                                            error_msg = f"Failed to parse MCP composition JSON: {e}"
+                                            logging.error(error_msg)
+                                            error_details = {
+                                                "repo_path": str(local_repo_path),
+                                                "filename": file_path,
+                                                "json_config": original_content,  # Use the original content for better context
+                                                "error_message": error_msg
+                                            }
+                                            mcp_composition = None
+                            except Exception as e:
+                                error_msg = f"Failed to parse MCP composition JSON: {e}"
+                                logging.error(error_msg)
+                                error_details = {
+                                    "repo_path": str(local_repo_path),
+                                    "filename": file_path,
+                                    "json_config": original_content,  # Use the original content for better context
+                                    "error_message": error_msg
+                                }
+                                mcp_composition = None
                             break  # We found a composition file, so break the file loop
 
         # If we found a composition or hit an error, break the directory loop
