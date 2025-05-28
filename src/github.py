@@ -1,16 +1,19 @@
 import logging
-from datetime import datetime
-from githubkit import GitHub, AppInstallationAuthStrategy
-from git import Repo, GitCommandError
-from githubkit.exception import RequestError, RequestFailed
-from pathlib import Path
-from urllib.parse import urlparse
-from githubkit.versions.latest.models import FullRepository
-from typing import Any
 import os
 import subprocess
-import magic
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+from git import Repo, GitCommandError
+from githubkit import GitHub, AppInstallationAuthStrategy
+from githubkit.exception import RequestError, RequestFailed
+from githubkit.versions.latest.models import FullRepository
+import magic
+
+from .functions import is_running_interactively
 
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
@@ -36,12 +39,20 @@ def get_installation_github_client(
     """
     try:
         # Find the installation ID for the target organization
-        installations = gh_app.rest.apps.list_installations().json()
+        response = gh_app.rest.apps.list_installations()
+        installations = response.parsed_data
         installation_id = None
-        for inst in installations:
-            if inst.get("account", {}).get("login") == target_org:
-                installation_id = inst["id"]
-                break
+
+        if not installations:
+            raise ValueError("No GitHub App installations found")
+
+        for installation in installations:
+            try:
+                if (installation.account and getattr(installation.account, "login", None) == target_org):
+                    installation_id = installation.id
+                    break
+            except Exception:
+                continue
 
         if not installation_id:
             raise ValueError(f"GitHub App installation not found for organization '[{target_org}]'")
@@ -132,7 +143,7 @@ def enable_ghas_features(gh: GitHub, owner: str, repo: str):
 
 def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
     """Clones a repository if it doesn't exist locally, or pulls updates if it does.
-    
+
     Args:
         repo_url: URL of the repository to clone or update.
         local_path: Local path where the repository should be cloned to.
@@ -141,7 +152,7 @@ def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
         bool: True if the repository was newly cloned, False if it was updated.
     """
     newly_cloned = False
-    
+
     if local_path.exists():
         logging.info(f"Repository already exists at [{local_path}]. Fetching updates...")
         try:
@@ -178,7 +189,7 @@ def clone_or_update_repo(repo_url: str, local_path: Path) -> bool:
         except Exception as e:
             logging.error(f"An unexpected error occurred during repo clone: [{e}]")
             raise
-            
+
     return newly_cloned
 
 def extract_repo_owner_name(github_url: str) -> tuple[str | None, str | None]:
@@ -274,7 +285,7 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         Exception: For other unexpected errors.
     """
     custom_properties_list = []
-    property_names = list(properties.keys()) # For logging
+    property_names = list(properties.keys())  # For logging
 
     try:
         for property_name, value in properties.items():
@@ -302,11 +313,23 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         if e.response.status_code == 422:
              logging.error(f"Failed to update custom properties {property_names} for [{target_org}/{target_repo_name}] with 422 Unprocessable Entity.")
              logging.error("This often means one or more custom property names do not exist for the organization/repo or a value is invalid for its property type.")
-             logging.error(f"Error details: {e.response.json()}") # Log the response body if available
+             logging.error(f"Error details: {e.response.json()}")  # Log the response body if available
+             # Show more detailed information when running interactively
+             if is_running_interactively():
+                logging.error("Detailed property values that caused the error:")
+                for idx, prop in enumerate(custom_properties_list):
+                    logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
         handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
         raise
     except Exception as e:
         logging.error(f"An unexpected error occurred while updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]: [{e}]")
+
+        # Show more detailed information when running interactively
+        if is_running_interactively():
+            logging.error("Detailed property values that caused the error:")
+            for idx, prop in enumerate(custom_properties_list):
+                logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+
         raise
 
 def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str, existing_repos_properties: list[dict]) -> dict[str, Any]:
@@ -361,10 +384,10 @@ def get_repository_properties(gh: GitHub, target_org: str, target_repo_name: str
 def is_valid_tarball(file_path: str) -> bool:
     """
     Verify if the file is a valid gzipped tarball using magic module.
-    
+
     Args:
         file_path: Path to the downloaded file
-        
+
     Returns:
         Boolean indicating if the file is a valid gzipped tarball
     """
@@ -372,7 +395,7 @@ def is_valid_tarball(file_path: str) -> bool:
         # Check the file type using libmagic
         file_type = magic.from_file(file_path)
         logging.debug(f"File type for [{file_path}]: {file_type}")
-        
+
         # Check if it's a gzip compressed file or tarball
         return ('gzip' in file_type.lower() or
                 'tar archive' in file_type.lower() or
@@ -384,7 +407,7 @@ def is_valid_tarball(file_path: str) -> bool:
 def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_repo_path: Path) -> None:
     """
     Clones a repository to a local path using the GitHub API tarball download.
-    
+
     Args:
         gh: Authenticated GitHub client instance.
         owner: Owner of the repository.
@@ -397,24 +420,24 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
         local_repo_path.mkdir(parents=True)
 
     logging.info(f"Cloning repository [{repo_name}] to [{local_repo_path}]")
-    
+
     max_retries = 3
     retry_delay = 2  # seconds
-    
+
     for attempt in range(1, max_retries + 1):
         try:
             # Get tarball URL from GitHub
             tarball_json = gh.rest.repos.download_tarball_archive(owner=owner, repo=repo_name, ref=branch)
             tarball_url = str(tarball_json.url)
-            
+
             # download the tarball
             logging.info(f"Downloading tarball from [{tarball_url}] (Attempt {attempt}/{max_retries})")
             tarball_file = f"{local_repo_path}.tar.gz"
             curl_command = ["curl", "-L", tarball_url, "-o", tarball_file]
-            
+
             process = subprocess.run(curl_command, capture_output=True, text=True, check=True)
             logging.debug(f"Curl command output: {process.stdout}")
-            
+
             # Verify that the downloaded file is a valid tarball
             if not is_valid_tarball(tarball_file):
                 logging.warning(f"Downloaded file for [{repo_name}] is not a valid gzipped tarball (Attempt {attempt}/{max_retries})")
@@ -425,7 +448,7 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
                 else:
                     logging.error(f"Failed to download valid tarball for [{repo_name}] after {max_retries} attempts")
                     return
-            
+
             # extract the tarball
             logging.info(f"Extracting tarball for [{repo_name}]")
             tar_command = ["tar", "-xvf", tarball_file, "-C", str(local_repo_path)]
@@ -442,7 +465,7 @@ def clone_repository(gh: Any, owner: str, repo_name: str, branch: str, local_rep
                     time.sleep(retry_delay)
                 else:
                     logging.error(f"Failed to extract tarball for [{repo_name}] after {max_retries} attempts")
-        
+
         except subprocess.CalledProcessError as e:
             logging.error(f"Error downloading tarball for [{repo_name}]: {e}")
             logging.error(f"Curl stderr: {e.stderr}")
@@ -477,7 +500,7 @@ def show_rate_limit(gh: GitHub):
         reset_timestamp = core_limit["reset"]
         # Convert Unix timestamp to readable datetime
         reset_datetime = datetime.fromtimestamp(reset_timestamp)
-        reset_str = reset_datetime.strftime("%Y-%m-%d %H:%M:%S %Z") # Format the datetime
+        reset_str = reset_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")  # Format the datetime
         logging.info(f"Rate Limit Info: Core - Limit: {core_limit['limit']}, Remaining: {core_limit['remaining']}, Reset: {reset_str}")
     except RequestFailed as e:
         handle_github_api_error(e, "fetching rate limit status")
@@ -486,7 +509,7 @@ def show_rate_limit(gh: GitHub):
 
 def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, labels: list[str] = []) -> bool:
     """Creates a GitHub issue if a similar issue does not already exist.
-    
+
     Args:
         gh: Authenticated GitHub client instance.
         owner: Repository owner (organization or user).
@@ -494,7 +517,7 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
         title: Issue title.
         body: Issue body/content.
         labels: List of labels to apply to the issue.
-        
+
     Returns:
         True if issue was created or already exists, False if creation failed.
     """
@@ -504,7 +527,7 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
             # Search for existing issues with the same error type in the title
             search_query = f"repo:{owner}/{repo} is:issue is:open label:analysis-failure in:title {title}"
             logging.info(f"Searching for existing issues using query: [{search_query}]")
-            
+
             try:
                 search_results = gh.rest.search.issues_and_pull_requests(q=search_query).json()
                 if search_results.get("total_count", 0) > 0:
@@ -521,7 +544,7 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
             body=body,
             labels=labels
         )
-        
+
         if response.status_code in (201, 200):
             issue_number = response.json().get("number")
             logging.info(f"Successfully created issue #{issue_number} in [{owner}/{repo}]")
@@ -529,7 +552,7 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
         else:
             logging.error(f"Unexpected response when creating issue in [{owner}/{repo}]: Status code [{response.status_code}]")
             return False
-            
+
     except RequestFailed as e:
         handle_github_api_error(e, f"creating issue in [{owner}/{repo}]")
         return False

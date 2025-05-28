@@ -75,8 +75,7 @@ jobs:
           EOF
 
           # Run the Python script and capture the token
-          TOKEN=$(python get_token.py)
-          if [ $? -ne 0 ]; then
+          if ! TOKEN=$(python get_token.py); then
               echo "Failed to generate GitHub token"
               exit 1
           fi
@@ -85,4 +84,3 @@ jobs:
           
           # Run the repository properties creation script
           ./create_repo_properties.sh "$TARGET_ORG" "$TOKEN"
-        

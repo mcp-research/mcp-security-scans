@@ -114,5 +114,6 @@ class TestTarballExtraction(unittest.TestCase):
         self.assertEqual(mock_is_valid.call_count, 3)  # Should check validity 3 times
         self.assertEqual(mock_run.call_count, 6)  # 3 times curl, 3 times tar
 
+
 if __name__ == "__main__":
     unittest.main()
