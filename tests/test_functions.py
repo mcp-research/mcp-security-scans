@@ -221,6 +221,86 @@ class TestShouldScanRepository(unittest.TestCase):
         }
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
+    def test_timestamp_with_leading_whitespace(self):
+        """Test timestamp with leading whitespace should be handled gracefully."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": " " + yesterday,
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace and return False (recently scanned)
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_timestamp_with_trailing_whitespace(self):
+        """Test timestamp with trailing whitespace should be handled gracefully."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": yesterday + " ",
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace and return False (recently scanned)
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_timestamp_with_both_whitespace(self):
+        """Test timestamp with both leading and trailing whitespace should be handled gracefully."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": " " + yesterday + " ",
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace and return False (recently scanned)
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_timestamp_with_newline(self):
+        """Test timestamp with newline should be handled gracefully."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": yesterday + "\n",
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace and return False (recently scanned)
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_specific_problematic_timestamp_format(self):
+        """Test the specific timestamp format mentioned in the issue."""
+        # This is the exact format that was causing issues according to the problem statement
+        problematic_timestamp = "2025-05-28T19:09:13.010962"
+        properties = {
+            "GHAS_Status_Updated": problematic_timestamp,
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_specific_problematic_timestamp_with_whitespace(self):
+        """Test the specific timestamp format with whitespace that was causing the warning."""
+        # This simulates the actual issue where whitespace causes parsing to fail
+        problematic_timestamp = " 2025-05-28T19:09:13.010962 "
+        properties = {
+            "GHAS_Status_Updated": problematic_timestamp,
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace (this timestamp is in the future, so should return False)
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_non_string_timestamp(self):
+        """Test that non-string timestamps are handled gracefully."""
+        properties = {"GHAS_Status_Updated": 123}  # Integer instead of string
+        # Should return True (scan) because it can't parse the integer as a timestamp
+        self.assertTrue(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,7 +31,13 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
         return True
     
     try:
-        last_scanned_time = datetime.datetime.fromisoformat(last_scanned)
+        # Strip whitespace from timestamp before parsing to handle gracefully
+        # Only call strip if last_scanned is a string
+        if isinstance(last_scanned, str):
+            last_scanned_time = datetime.datetime.fromisoformat(last_scanned.strip())
+        else:
+            # If it's not a string, try to parse it directly (this will likely fail for non-string types)
+            last_scanned_time = datetime.datetime.fromisoformat(last_scanned)
         if datetime.datetime.now() - last_scanned_time > datetime.timedelta(days=days_threshold):
             logging.info(f"Repository was last scanned more than {days_threshold} days ago. Scanning...")
             return True
