@@ -462,11 +462,10 @@ def process_repository(
     # Return all counts and flags
     return processed_increment, dependabot_increment, skipped_non_fork, failed_fork
 
+
 # Main Logic
-
-
 def main():
-    start_time = datetime.datetime.now() # Record start time
+    start_time = datetime.datetime.now()  # Record start time
     parser = argparse.ArgumentParser(description="Fork MCP Hub repos and enable GHAS features.")
     # Removed app-id and private-key-path arguments
     parser.add_argument("--target-org", default=TARGET_ORG, help=f"Target GitHub organization to fork into (default: {TARGET_ORG})")
@@ -509,7 +508,7 @@ def main():
                 all_server_repos.extend(server_files_from_loader)
             else:
                 source_counts[source_name] = 0
-        
+
         # Deduplicate JSON files (in case multiple sources have the same file)
         all_server_repos = sorted(list(set(all_server_repos)))
 
