@@ -1,0 +1,38 @@
+This is a test file containing problematic JSON with invalid env vars:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/your-username/Desktop"
+      ]
+    },
+    "agent-care": {
+      "command": "node",
+      "args": [
+        "/Users/your-username/{agentcare-download-path}/agent-care-mcp/build/index.js"
+      ],
+      "env": {
+        "OAUTH_CLIENT_ID": XXXXXX,
+        "OAUTH_CLIENT_SECRET":XXXXXXX,
+        "OAUTH_TOKEN_HOST":,
+        "OAUTH_TOKEN_PATH":,
+        "OAUTH_AUTHORIZE_PATH",
+        "OAUTH_AUTHORIZATION_METHOD": ,
+        "OAUTH_AUDIENCE":,
+        "OAUTH_CALLBACK_URL":,
+        "OAUTH_SCOPES":,
+        "OAUTH_CALLBACK_PORT":,
+        "FHIR_BASE_URL":,
+        "PUBMED_API_KEY":,
+        "CLINICAL_TRIALS_API_KEY":,
+        "FDA_API_KEY":
+      }
+    }
+  }
+}
+```
