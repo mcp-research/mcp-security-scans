@@ -41,7 +41,6 @@ GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan times
 
 # Property names for total alert counts
 CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
-SECRET_ALERTS = "SecretAlerts"  # Property name for secret scanning alerts
 DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
 
 # Property names for code scanning alerts by severity
@@ -334,7 +333,6 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         properties_to_update = {
             # Total counts for backward compatibility
             Constants.AlertProperties.CODE_ALERTS: code_alerts["total"],
-            Constants.AlertProperties.SECRET_ALERTS: secret_alerts["total"],
             Constants.AlertProperties.DEPENDENCY_ALERTS: dependency_alerts["total"],
 
             # Code scanning alerts by severity

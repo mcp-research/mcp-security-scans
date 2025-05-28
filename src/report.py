@@ -152,7 +152,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
 
             # Get alert counts - use safe conversion to handle None values
             code_alerts = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS, 0))
-            secret_alerts = safe_int_convert(properties.get(Constants.AlertProperties.SECRET_ALERTS, 0))
+            secret_alerts = safe_int_convert(properties.get(Constants.AlertProperties.SECRET_ALERTS_TOTAL, 0))
             dependency_alerts = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS, 0))
 
             # Get code scanning alert counts by severity
