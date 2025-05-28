@@ -27,6 +27,7 @@ from .github import (
     clone_repository,
     create_issue,
 )
+from .constants import Constants
 
 # Configuration
 logging.basicConfig(
@@ -265,7 +266,7 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         - secret_alerts: Dictionary with secret scanning alerts count
         - dependency_alerts: Dictionary with dependency vulnerability alerts by severity
     """
-    owner = repo.owner.login if repo.owner else TARGET_ORG
+    owner = repo.owner.login if repo.owner else Constants.Org.TARGET_ORG
     repo_name = repo.name
 
     # Initialize alert counts with empty dictionaries
@@ -320,7 +321,7 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             # Continue with empty properties
 
         # Check if we should scan this repository based on timestamp
-        if not should_scan_repository(properties, GHAS_STATUS_UPDATED, SCAN_FREQUENCY_DAYS):
+        if not should_scan_repository(properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
             return False, code_alerts, secret_alerts, dependency_alerts
 
         logging.info(f"Scanning repository {owner}/{repo_name} for GHAS alerts...")
@@ -333,29 +334,29 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         # Update repository properties with counts and timestamp
         properties_to_update = {
             # Total counts for backward compatibility
-            CODE_ALERTS: code_alerts["total"],
-            SECRET_ALERTS: secret_alerts["total"],
-            DEPENDENCY_ALERTS: dependency_alerts["total"],
-
+            Constants.AlertProperties.CODE_ALERTS: code_alerts["total"],
+            Constants.AlertProperties.SECRET_ALERTS: secret_alerts["total"],
+            Constants.AlertProperties.DEPENDENCY_ALERTS: dependency_alerts["total"],
+            
             # Code scanning alerts by severity
-            CODE_ALERTS_CRITICAL: code_alerts["critical"],
-            CODE_ALERTS_HIGH: code_alerts["high"],
-            CODE_ALERTS_MEDIUM: code_alerts["medium"],
-            CODE_ALERTS_LOW: code_alerts["low"],
-
+            Constants.AlertProperties.CODE_ALERTS_CRITICAL: code_alerts["critical"],
+            Constants.AlertProperties.CODE_ALERTS_HIGH: code_alerts["high"],
+            Constants.AlertProperties.CODE_ALERTS_MEDIUM: code_alerts["medium"],
+            Constants.AlertProperties.CODE_ALERTS_LOW: code_alerts["low"],
+            
             # Secret scanning alerts (only total for now)
-            SECRET_ALERTS_TOTAL: secret_alerts["total"],
+            Constants.AlertProperties.SECRET_ALERTS_TOTAL: secret_alerts["total"],
             # Store secret types as a JSON string
-            SECRET_ALERTS_BY_TYPE: json.dumps(secret_alerts["types"]) if secret_alerts["types"] else "{}",
-
+            Constants.AlertProperties.SECRET_ALERTS_BY_TYPE: json.dumps(secret_alerts["types"]) if secret_alerts["types"] else "{}",
+            
             # Dependency scanning alerts by severity
-            DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
-            DEPENDENCY_ALERTS_HIGH: dependency_alerts["high"],
-            DEPENDENCY_ALERTS_MODERATE: dependency_alerts["moderate"],
-            DEPENDENCY_ALERTS_LOW: dependency_alerts["low"],
+            Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
+            Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH: dependency_alerts["high"],
+            Constants.AlertProperties.DEPENDENCY_ALERTS_MODERATE: dependency_alerts["moderate"],
+            Constants.AlertProperties.DEPENDENCY_ALERTS_LOW: dependency_alerts["low"],
 
             # Update timestamp
-            GHAS_STATUS_UPDATED: datetime.datetime.now().isoformat()
+            Constants.ScanSettings.GHAS_STATUS_UPDATED: datetime.datetime.now().isoformat()
         }
 
         update_repository_properties(gh, owner, repo_name, properties_to_update)
@@ -552,8 +553,8 @@ def main():
     start_time = datetime.datetime.now()
 
     parser = argparse.ArgumentParser(description="Scan repositories for GHAS alerts and store in repository properties.")
-    parser.add_argument("--target-org", default=TARGET_ORG,
-                        help=f"Target GitHub organization to scan (default: [{TARGET_ORG}])")
+    parser.add_argument("--target-org", default=Constants.Org.TARGET_ORG,
+                        help=f"Target GitHub organization to scan (default: [{Constants.Org.TARGET_ORG}])")
     parser.add_argument("--num-repos", type=int, default=10,
                         help="Maximum number of repositories to scan (default: 10)")
     parser.add_argument("--verbose", "-v", action="store_true",
