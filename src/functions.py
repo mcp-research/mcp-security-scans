@@ -34,7 +34,20 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
         # Strip whitespace from timestamp before parsing to handle gracefully
         # Only call strip if last_scanned is a string
         if isinstance(last_scanned, str):
-            last_scanned_time = datetime.datetime.fromisoformat(last_scanned.strip())
+            timestamp_str = last_scanned.strip()
+            
+            # Try parsing with fromisoformat first
+            try:
+                last_scanned_time = datetime.datetime.fromisoformat(timestamp_str)
+            except ValueError:
+                # If that fails, try adding UTC timezone indicator and parse again
+                # This handles timestamps without timezone info like "2025-05-28T20:36:15.994131"
+                if timestamp_str.endswith('Z') or '+' in timestamp_str or timestamp_str.count(':') >= 3:
+                    # Already has timezone info, re-raise the original error
+                    raise
+                else:
+                    # Try adding 'Z' to indicate UTC
+                    last_scanned_time = datetime.datetime.fromisoformat(timestamp_str + 'Z')
         else:
             # If it's not a string, try to parse it directly (this will likely fail for non-string types)
             last_scanned_time = datetime.datetime.fromisoformat(last_scanned)

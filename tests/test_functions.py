@@ -301,6 +301,31 @@ class TestShouldScanRepository(unittest.TestCase):
         # Should return True (scan) because it can't parse the integer as a timestamp
         self.assertTrue(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
+    def test_timestamp_without_timezone_latest(self):
+        """Test the latest timestamp format mentioned in comment - 2025-05-28T20:36:15.994131."""
+        # This is the timestamp mentioned in the latest comment from @rajbos
+        timestamp = "2025-05-28T20:36:15.994131"
+        properties = {
+            "GHAS_Status_Updated": timestamp,
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_timestamp_without_timezone_with_whitespace(self):
+        """Test timestamp without timezone info but with whitespace."""
+        timestamp = " 2025-05-28T20:36:15.994131 "
+        properties = {
+            "GHAS_Status_Updated": timestamp,
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0
+        }
+        # Should parse successfully after stripping whitespace
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
 
 if __name__ == "__main__":
     unittest.main()
