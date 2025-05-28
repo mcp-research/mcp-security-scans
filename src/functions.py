@@ -95,8 +95,8 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
 
             # Check secret scanning alerts
             # Both conditions: SecretAlerts_Total not set OR (SecretAlerts_Total > 0 and SecretAlerts_By_Type not set)
-            secret_alerts_total = properties.get("SecretAlerts_Total")
-            secret_alerts_by_type = properties.get("SecretAlerts_By_Type")
+            secret_alerts_total = int(properties.get("SecretAlerts_Total"))
+            secret_alerts_by_type = int(properties.get("SecretAlerts_By_Type"))
 
             if secret_alerts_total is None:
                 logging.info("Repository is missing secret alerts total. Scanning...")
@@ -107,7 +107,7 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
                 return True
 
             # Check dependency alerts
-            dependency_alerts = properties.get("DependencyAlerts", 0)
+            dependency_alerts = int(properties.get("DependencyAlerts", 0))
             if dependency_alerts > 0:
                 # Check if any of the severity breakdowns are missing
                 has_critical = "DependencyAlerts_Critical" in properties
@@ -121,8 +121,8 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
 
             logging.info(f"Repository was scanned within the last [{days_threshold}] days and has complete data. Skipping...")
             return False
-    except (ValueError, TypeError):
-        logging.warning(f"Error checking if this repo needs to be rescanned or not: {ValueError} or {TypeError}")
+    except (ValueError, TypeError) as e:
+        logging.warning(f"Error checking if this repo needs to be rescanned or not: [{e}]")
         return True
 
 def is_running_interactively() -> bool:
