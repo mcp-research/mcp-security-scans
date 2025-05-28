@@ -113,7 +113,7 @@ More comments here.
         
         # Verify that only the JSON configuration is included, not the entire file content
         json_config = error_details["json_config"]
-        self.assertNotIn("This is documentation before", json_config, 
+        self.assertNotIn("This is documentation before", json_config,
                          "Error details should not include content before JSON")
         self.assertNotIn("And this is documentation after", json_config,
                          "Error details should not include content after JSON")
