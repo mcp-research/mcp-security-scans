@@ -95,10 +95,15 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
 
             # Check secret scanning alerts
             # Both conditions: SecretAlerts_Total not set OR (SecretAlerts_Total > 0 and SecretAlerts_By_Type not set)
-            secret_alerts_total = int(properties.get("SecretAlerts_Total"))
-            secret_alerts_by_type = int(properties.get("SecretAlerts_By_Type"))
+            try:
+                secret_alerts_total = int(properties.get("SecretAlerts_Total", 0))
+                secret_alerts_by_type = int(properties.get("SecretAlerts_By_Type", 0))
+            except (ValueError, TypeError):
+                # If we can't parse the values, we should scan
+                logging.info("Repository has invalid secret alerts values. Scanning...")
+                return True
 
-            if secret_alerts_total is None:
+            if "SecretAlerts_Total" not in properties:
                 logging.info("Repository is missing secret alerts total. Scanning...")
                 return True
 
