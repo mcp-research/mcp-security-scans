@@ -95,5 +95,5 @@ jobs:
             PY_ARGS+=( --verbose )
           fi
           
-          echo "Running analysis script with arguments: [${PY_ARGS[@]}]"
+          echo "Running analysis script with arguments: [${PY_ARGS[*]}]"
           python -m src.analyze "${PY_ARGS[@]}"
