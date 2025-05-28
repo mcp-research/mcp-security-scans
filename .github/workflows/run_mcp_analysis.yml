@@ -57,35 +57,35 @@ jobs:
           python -m pip install --upgrade pip
           python -m venv venv
           source venv/bin/activate
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "requirements.txt not found"; exit 1; fi
+          pip install -r requirements.txt
 
       - name: Run MCP Repository Analysis Script
         env:
-          GH_APP_ID: ${{ vars.GH_APP_ID }} 
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Use the input if manually triggered, otherwise the script uses its internal default
           TARGET_ORG_INPUT: ${{ github.event.inputs.target_org }}
           NUM_REPOS_INPUT: ${{ github.event.inputs.num_repos }}
         run: |
           # Activate the virtual environment
           source venv/bin/activate
-          
+
           # Start with an empty array for arguments
           PY_ARGS=()
-          
+
           # Only add the argument if the input is not empty and not the default
           if [[ -n "$TARGET_ORG_INPUT" && "$TARGET_ORG_INPUT" != "mcp-research" ]]; then
             PY_ARGS+=( --target-org "$TARGET_ORG_INPUT" )
           fi
-          
+
           # Add the number of repos argument
           PY_ARGS+=( --num-repos "${NUM_REPOS_INPUT:-$DEFAULT_NUMBER_OF_REPOS}" )
-          
+
           # Add verbose flag if selected
           if [[ "${{ github.event.inputs.verbose }}" == "true" ]]; then
             PY_ARGS+=( --verbose )
           fi
-          
+
           echo "Running analysis script with arguments: [${PY_ARGS[*]}]"
           python -m src.analyze "${PY_ARGS[@]}"

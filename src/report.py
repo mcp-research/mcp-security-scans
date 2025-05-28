@@ -27,10 +27,10 @@ REPORT_DIR = "reports"  # Directory to save reports
 def parse_iso_date(date_string: str) -> Optional[datetime.datetime]:
     """
     Parse an ISO format date string to a datetime object.
-    
+
     Args:
         date_string: ISO format date string.
-        
+
     Returns:
         datetime object or None if parsing fails.
     """
@@ -42,11 +42,11 @@ def parse_iso_date(date_string: str) -> Optional[datetime.datetime]:
 def safe_int_convert(value, default=0):
     """
     Safely convert a value to integer, returning default if conversion fails.
-    
+
     Args:
         value: Value to convert.
         default: Default value to return if conversion fails.
-        
+
     Returns:
         Integer value or default.
     """
@@ -60,12 +60,12 @@ def safe_int_convert(value, default=0):
 def get_report_filename(target_org: str, output_dir: str, extension: str) -> str:
     """
     Generate a standardized report filename.
-    
+
     Args:
         target_org: Target organization name
         output_dir: Directory to save the report
         extension: File extension (e.g., 'json', 'md')
-        
+
     Returns:
         Full path to the report file
     """
@@ -75,28 +75,28 @@ def get_report_filename(target_org: str, output_dir: str, extension: str) -> str
 def generate_report(repo_properties: List[Dict], target_org: str, output_dir: str = REPORT_DIR) -> Dict:
     """
     Generate a report from repository properties.
-    
+
     Args:
         repo_properties: List of repository properties.
         target_org: Target organization name.
         output_dir: Directory to save report files.
-        
+
     Returns:
         Dictionary with report statistics.
     """
     # Create reports directory if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
+
     # Initialize counters and data structures
     total_repos = len(repo_properties)
     scanned_repos = 0
     repos_with_alerts = 0
-    
+
     # Total alert counts
     total_code_alerts = 0
     total_secret_alerts = 0
     total_dependency_alerts = 0
-    
+
     # Alert counts by severity
     code_alerts_by_severity = {
         'critical': 0,
@@ -104,17 +104,17 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'medium': 0,
         'low': 0
     }
-    
+
     dependency_alerts_by_severity = {
         'critical': 0,
         'high': 0,
         'moderate': 0,
         'low': 0
     }
-    
+
     # Dictionary to track secret alerts by type
     secret_alerts_by_type = defaultdict(int)
-    
+
     # Dictionary to track alerts by date
     alerts_by_date = defaultdict(lambda: {
         'code': 0,
@@ -130,69 +130,70 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'dependency_moderate': 0,
         'dependency_low': 0
     })
-    
+
     # Dictionary to store repositories with alerts
     repos_alerts = {}
-    
+
     # Process each repository's properties
     for repo_prop in repo_properties:
         repo_name = repo_prop.repository_name
         full_name = f"{target_org}/{repo_name}"
-        
+
         # Extract properties
         properties = {prop.property_name: prop.value for prop in repo_prop.properties}
-        
+
         # Check if repo has been scanned
         if Constants.ScanSettings.GHAS_STATUS_UPDATED in properties:
             scanned_repos += 1
-            
+
             # Parse scan date
             scan_date_str = properties.get(Constants.ScanSettings.GHAS_STATUS_UPDATED)
             scan_date = parse_iso_date(scan_date_str)
-            
+
             # Get alert counts - use safe conversion to handle None values
             code_alerts = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS, 0))
             secret_alerts = safe_int_convert(properties.get(Constants.AlertProperties.SECRET_ALERTS, 0))
             dependency_alerts = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS, 0))
-            
+
             # Get code scanning alert counts by severity
             code_critical = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_CRITICAL, 0))
             code_high = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_HIGH, 0))
             code_medium = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_MEDIUM, 0))
             code_low = safe_int_convert(properties.get(Constants.AlertProperties.CODE_ALERTS_LOW, 0))
-            
+
             # Get dependency alert counts by severity
             dep_critical = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICAL, 0))
             dep_high = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_HIGH, 0))
             dep_moderate = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_MODERATE, 0))
             dep_low = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_LOW, 0))
-            
+
             # Get secret alert types
             secret_types_json = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "{}")
-            try:
-                secret_types = json.loads(secret_types_json)
-                # Add to type totals
-                for secret_type, count in secret_types.items():
-                    secret_alerts_by_type[secret_type] += safe_int_convert(count)
-            except json.JSONDecodeError:
-                logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
-            
+            if secret_types_json and secret_types_json != "{}":
+                try:
+                    secret_types = json.loads(secret_types_json)
+                    # Add to type totals
+                    for secret_type, count in secret_types.items():
+                        secret_alerts_by_type[secret_type] += safe_int_convert(count)
+                except json.JSONDecodeError:
+                    logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
+
             # Add to totals
             total_code_alerts += code_alerts
             total_secret_alerts += secret_alerts
             total_dependency_alerts += dependency_alerts
-            
+
             # Add to severity totals
             code_alerts_by_severity['critical'] += code_critical
             code_alerts_by_severity['high'] += code_high
             code_alerts_by_severity['medium'] += code_medium
             code_alerts_by_severity['low'] += code_low
-            
+
             dependency_alerts_by_severity['critical'] += dep_critical
             dependency_alerts_by_severity['high'] += dep_high
             dependency_alerts_by_severity['moderate'] += dep_moderate
             dependency_alerts_by_severity['low'] += dep_low
-            
+
             # Track repositories with alerts
             if code_alerts > 0 or secret_alerts > 0 or dependency_alerts > 0:
                 repos_with_alerts += 1
@@ -212,7 +213,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                     'dep_moderate': dep_moderate,
                     'dep_low': dep_low
                 }
-            
+
             # Track alerts by date
             if scan_date:
                 date_key = scan_date.strftime('%Y-%m-%d')
@@ -229,7 +230,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 alerts_by_date[date_key]['dependency_high'] += dep_high
                 alerts_by_date[date_key]['dependency_moderate'] += dep_moderate
                 alerts_by_date[date_key]['dependency_low'] += dep_low
-    
+
     # Generate summary statistics
     stats = {
         'organization': target_org,
@@ -249,13 +250,13 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'repos_alerts': repos_alerts,
         'report_date': datetime.datetime.now().isoformat(),
     }
-    
+
     # Write JSON report
     report_file = get_report_filename(target_org, output_dir, 'json')
     with open(report_file, 'w') as f:
         json.dump(stats, f, indent=2)
     logging.info(f"JSON report saved to {report_file}")
-    
+
     # Write Markdown report
     summary_file_path = os.getenv("GITHUB_STEP_SUMMARY")
     md_report_file = get_report_filename(target_org, output_dir, 'md')
@@ -265,20 +266,20 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         try:
             with open(md_report_file, "r") as md_file:
                 content = md_file.read()
-                
+
             with open(summary_file_path, "a") as summary_file:
                 summary_file.write(content + "\n\n")
             logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
         except Exception as e:
             logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
     logging.info(f"Markdown report saved to {md_report_file}")
-    
+
     return stats
 
 def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> None:
     """
     Write a markdown report from statistics.
-    
+
     Args:
         stats: Dictionary with report statistics.
         output_file: File to write the report to.
@@ -286,7 +287,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
     with open(output_file, 'w') as f:
         f.write(f"# GHAS Security Report - {stats['organization']}\n\n")
         f.write(f"*Report generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n")
-        
+
         f.write("## Summary\n\n")
         f.write(f"- **Organization:** {stats['organization']}\n")
         f.write(f"- **Total Repositories:** {stats['total_repositories']}\n")
@@ -296,20 +297,20 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         f.write(f"  - Code Scanning Alerts: {stats['total_code_alerts']}\n")
         f.write(f"  - Secret Scanning Alerts: {stats['total_secret_alerts']}\n")
         f.write(f"  - Dependency Alerts: {stats['total_dependency_alerts']}\n\n")
-        
+
         # Add severity breakdown sections
         f.write("## Code Scanning Alerts by Severity\n\n")
         f.write(f"- Critical: {stats['code_alerts_by_severity']['critical']}\n")
         f.write(f"- High: {stats['code_alerts_by_severity']['high']}\n")
         f.write(f"- Medium: {stats['code_alerts_by_severity']['medium']}\n")
         f.write(f"- Low: {stats['code_alerts_by_severity']['low']}\n\n")
-        
+
         f.write("## Dependency Alerts by Severity\n\n")
         f.write(f"- Critical: {stats['dependency_alerts_by_severity']['critical']}\n")
         f.write(f"- High: {stats['dependency_alerts_by_severity']['high']}\n")
         f.write(f"- Moderate: {stats['dependency_alerts_by_severity']['moderate']}\n")
         f.write(f"- Low: {stats['dependency_alerts_by_severity']['low']}\n\n")
-        
+
         # Add section for secret alerts by type
         f.write("## Secret Scanning Alerts by Type\n\n")
         if len(stats['secret_alerts_by_type']) > 0:
@@ -320,42 +321,42 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         else:
             f.write("No secret scanning alerts found.\n")
         f.write("\n")
-        
+
         # Coverage statistics
         if stats['total_repositories'] > 0:
             scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
             f.write(f"## Coverage\n\n")
             f.write(f"- **Scan Coverage:** {scan_coverage:.1f}%\n")
-        
+
         # Only show detailed repository section if not running in CI
         if not (os.getenv("CI")):
             f.write(f"\n## Top Repositories with Alerts\n\n")
             f.write("| Repository | Total Alerts | Code Alerts | Secret Alerts | Dependency Alerts | Last Scanned |\n")
             f.write("|------------|-------------|------------|--------------|-------------------|-------------|\n")
-            
+
             # Sort repositories by total alerts
             top_repos = sorted(
                 stats['repos_alerts'].items(),
                 key=lambda x: x[1]['total'],
                 reverse=True
             )
-            
+
             # List top 10 repositories or all if less than 10
             for repo_name, repo_data in top_repos[:10]:
                 f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | {repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
-            
+
             # Add a section for repositories with most critical alerts
             f.write(f"\n## Top Repositories with Critical Alerts\n\n")
             f.write("| Repository | Critical Code | Critical Dependencies |\n")
             f.write("|------------|--------------|----------------------|\n")
-            
+
             # Sort repositories by critical alerts (code + dependency)
             critical_repos = sorted(
                 stats['repos_alerts'].items(),
                 key=lambda x: (x[1].get('code_critical', 0) + x[1].get('dep_critical', 0)),
                 reverse=True
             )
-            
+
             # List top 10 repositories with critical alerts
             for repo_name, repo_data in critical_repos[:10]:
                 if repo_data.get('code_critical', 0) > 0 or repo_data.get('dep_critical', 0) > 0:
@@ -364,7 +365,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
 def print_console_summary(stats: Dict) -> None:
     """
     Print a summary of the report to the console.
-    
+
     Args:
         stats: Dictionary with report statistics.
     """
@@ -378,20 +379,20 @@ def print_console_summary(stats: Dict) -> None:
     print(f"  - Code Scanning Alerts: {stats['total_code_alerts']}")
     print(f"  - Secret Scanning Alerts: {stats['total_secret_alerts']}")
     print(f"  - Dependency Alerts: {stats['total_dependency_alerts']}")
-    
+
     # Print severity breakdowns
     print("\nCode Scanning Alerts by Severity:")
     print(f"  - Critical: {stats['code_alerts_by_severity']['critical']}")
     print(f"  - High: {stats['code_alerts_by_severity']['high']}")
     print(f"  - Medium: {stats['code_alerts_by_severity']['medium']}")
     print(f"  - Low: {stats['code_alerts_by_severity']['low']}")
-    
+
     print("\nDependency Alerts by Severity:")
     print(f"  - Critical: {stats['dependency_alerts_by_severity']['critical']}")
     print(f"  - High: {stats['dependency_alerts_by_severity']['high']}")
     print(f"  - Moderate: {stats['dependency_alerts_by_severity']['moderate']}")
     print(f"  - Low: {stats['dependency_alerts_by_severity']['low']}")
-    
+
     # Print secret type breakdown
     print("\nSecret Scanning Alerts by Type:")
     if len(stats['secret_alerts_by_type']) > 0:
@@ -401,12 +402,12 @@ def print_console_summary(stats: Dict) -> None:
         print("  Secrets found but types not categorized.")
     else:
         print("  No secret scanning alerts found.")
-    
+
     # Calculate percentages if possible
     if stats['total_repositories'] > 0:
         scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
         print(f"\nScan Coverage: {scan_coverage:.1f}%")
-    
+
     # Only show sensitive data if not running in CI
     if not (os.getenv("CI")):
         print("\nTop 5 Repositories with Most Alerts:")
@@ -415,10 +416,10 @@ def print_console_summary(stats: Dict) -> None:
             key=lambda x: x[1]['total'],
             reverse=True
         )
-        
+
         for i, (repo_name, repo_data) in enumerate(top_repos[:5], 1):
             print(f"{i}. {repo_name}: {repo_data['total']} alerts")
-        
+
         # Show top 5 repositories with critical alerts
         print("\nTop 5 Repositories with Critical Alerts:")
         critical_repos = sorted(
@@ -426,7 +427,7 @@ def print_console_summary(stats: Dict) -> None:
             key=lambda x: (x[1].get('code_critical', 0) + x[1].get('dep_critical', 0)),
             reverse=True
         )
-        
+
         critical_count = 0
         for i, (repo_name, repo_data) in enumerate(critical_repos, 1):
             critical_code = repo_data.get('code_critical', 0)
@@ -436,7 +437,7 @@ def print_console_summary(stats: Dict) -> None:
                 critical_count += 1
                 if critical_count >= 5:
                     break
-    
+
     print(f"\nDetailed reports saved to {REPORT_DIR}/ directory")
 
 def main() -> None:
@@ -444,7 +445,7 @@ def main() -> None:
     Main execution function.
     """
     start_time = datetime.datetime.now()
-    
+
     parser = argparse.ArgumentParser(description="Generate GHAS security reports from repository properties")
     parser.add_argument("--target-org", default=Constants.Org.TARGET_ORG,
                         help=f"Target GitHub organization (default: {Constants.Org.TARGET_ORG})")
@@ -452,49 +453,49 @@ def main() -> None:
                         help=f"Directory to save reports (default: {Constants.Reports.REPORT_DIR})")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose logging")
-    
+
     args = parser.parse_args()
-    
+
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         logging.getLogger("githubkit").setLevel(logging.INFO)
-    
+
     # Load credentials from environment variables
     app_id = os.getenv("GH_APP_ID")
     private_key = os.getenv("GH_APP_PRIVATE_KEY")
-    
+
     if not app_id:
         logging.error("GH_APP_ID environment variable not set.")
         return
-    
+
     if not private_key:
         logging.error("GH_APP_PRIVATE_KEY environment variable not set.")
         return
-    
+
     try:
         # Authentication
         gh = get_github_client(app_id, private_key)
-        
+
         # Load repository properties
         logging.info(f"Loading repository properties for organization [{args.target_org}]...")
         repo_properties = list_all_repository_properties_for_org(gh, args.target_org)
-        
-        logging.info(f"Found properties for {len(repo_properties)} repositories in organization {args.target_org}")
-        
+
+        logging.info(f"Found properties for [{len(repo_properties)}] repositories in organization [{args.target_org}]")
+
         # Generate report
         stats = generate_report(repo_properties, args.target_org, args.output_dir)
-        
+
         # Print summary to console
         print_console_summary(stats)
-        
+
         # Show GitHub API rate limit
         show_rate_limit(gh)
-        
+
         # Log execution time
         end_time = datetime.datetime.now()
         duration = end_time - start_time
         logging.info(f"Report generation completed in {duration}")
-        
+
     except Exception as e:
         logging.error(f"Script failed with an error: {e}")
 
