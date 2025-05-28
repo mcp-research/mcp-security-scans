@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import time
 from datetime import datetime
@@ -530,7 +531,6 @@ def create_issue(gh: GitHub, owner: str, repo: str, title: str, body: str, label
             # For JSON parsing errors, search without the specific position details
             if "Failed to parse MCP composition JSON" in title:
                 # Extract just the error type without line/column/char positions
-                import re
                 # Match patterns like: Expecting ',' delimiter: line 1 column 119 (char 118)
                 # Extract just "Expecting ',' delimiter" and ignore the position information
                 match = re.search(r"(Failed to parse MCP composition JSON: [^:]+)", title)
