@@ -20,7 +20,8 @@ from githubkit.versions.latest.models import FullRepository
 from .functions import (
     should_scan_repository_for_GHAS_alerts,
     should_scan_repository_for_MCP_Composition,
-    get_repository_properties
+    get_repository_properties,
+    log_separator
 )
 from .github import (
     get_github_client,
@@ -692,6 +693,8 @@ def main():
         else:
             logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
 
+        log_separator()
+
         # Process repositories
         for idx, repo in enumerate(existing_repos):
             if scanned_repos >= args.num_repos:
@@ -787,7 +790,7 @@ def main():
             else:
                 skipped_repos += 1
 
-            logging.info("--------------------------------------------------")  # visual separator per repo scan
+            log_separator()
 
         # --- Generate summary ---
         end_time = datetime.datetime.now()

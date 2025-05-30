@@ -225,3 +225,10 @@ def is_running_interactively() -> bool:
     has_debugger = sys.gettrace() is not None
 
     return is_tty or has_debugger
+
+
+def log_separator():
+    """
+    Logs a separator line to visually separate log messages.
+    """
+    logging.info("------------------------------------------------------------")
