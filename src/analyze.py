@@ -19,7 +19,8 @@ from githubkit.versions.latest.models import FullRepository
 
 from .functions import (
     should_scan_repository_for_GHAS_alerts,
-    should_scan_repository_for_MCP_Composition
+    should_scan_repository_for_MCP_Composition,
+    get_repository_properties
 )
 from .github import (
     get_github_client,
@@ -723,9 +724,10 @@ def main():
 
             # Get the default branch and GitHub token for cloning
             fork_default_branch = repo.default_branch if repo else "main"
+            repo_properties = get_repository_properties(existing_repos_properties, repo)
 
             # todo: convert Constants.ScanSettings.GHAS_STATUS_UPDATED to a new field "LastUpdated" that reflects the last time the fork was updated
-            if should_scan_repository_for_MCP_Composition(existing_repos_properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
+            if should_scan_repository_for_MCP_Composition(repo_properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
                 # clone the repo to a temp directory to check for MCP composition
                 local_repo_path = Path(f"tmp/{repo.name}")
                 clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
@@ -756,7 +758,7 @@ def main():
                     runtime = {}
 
             # Now scan repository for GHAS alerts with runtime information
-            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties, runtime)
+            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, repo_properties, runtime)
 
             if success:
                 scanned_repos += 1

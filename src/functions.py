@@ -86,6 +86,7 @@ def should_scan_repository_for_MCP_Composition(properties: Dict[str, Any], times
         logging.warning(f"Error checking if this repo needs to be rescanned for MCP composition: [{e}]")
         return True
 
+
 def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
     """
     Determines if a repository should be scanned based on its last scan timestamp
@@ -168,6 +169,39 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
     except (ValueError, TypeError) as e:
         logging.warning(f"Error checking if this repo needs to be rescanned or not: [{e}]")
         return True
+
+def get_repository_properties(existing_repos_properties: Dict[str, Any], repo) -> Dict[str, Any]:
+
+    owner = repo.owner.login if repo.owner else Constants.Org.TARGET_ORG
+    repo_name = repo.name
+
+    # Get existing properties - fixed to handle the custom properties structure correctly
+    properties = {}
+    try:
+        # Search in the existing properties list
+        for repo_properties in existing_repos_properties:
+            if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
+                # Extract properties from the custom properties object
+                for prop in repo_properties.properties:
+                    properties[prop.property_name] = prop.value
+                logging.info(f"Found existing custom properties for {owner}/{repo_name}")
+                break
+
+        # If no properties found in the cached list, fetch directly
+        if not properties:
+            response = gh.rest.repos.get_custom_properties_values(
+                owner=owner,
+                repo=repo_name
+            )
+            props = response.json()
+            for prop in props:
+                properties[prop["property_name"]] = prop["value"]
+
+        return properties
+
+    except Exception as prop_error:
+        logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
+
 
 def is_running_interactively() -> bool:
     """
