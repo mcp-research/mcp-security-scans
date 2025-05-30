@@ -47,7 +47,46 @@ def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
         # Non-string values cannot be parsed by fromisoformat
         raise ValueError(f"Expected string timestamp, got {type(timestamp_value).__name__}")
 
-def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
+def should_scan_repository_for_MCP_Composition(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
+    """
+    Determines if a repository should be scanned for MCP composition based on its last update timestamp
+    and whether MCP_Server_Runtime has been set.
+
+    Args:
+        properties: Dictionary of repository properties.
+        timestamp_property: Name of the timestamp property to check (should be 'LastUpdated').
+        days_threshold: Minimum days between scans.
+
+    Returns:
+        True if the repository should be scanned, False otherwise.
+    """
+    last_updated = properties.get(timestamp_property)
+
+    if not last_updated:
+        logging.info("Repository has never been updated. Scanning...")
+        return True
+
+    if last_updated == "Testing":
+        logging.info("Repository is marked for testing. Scanning...")
+        return True
+
+    try:
+        last_updated_time = parse_timestamp(last_updated)
+        if datetime.datetime.now() - last_updated_time > datetime.timedelta(days=days_threshold):
+            logging.info(f"Repository was last updated more than [{days_threshold}] days ago. Scanning...")
+            return True
+        else:
+            mcp_server_runtime = properties.get("MCP_Server_Runtime")
+            if mcp_server_runtime is None or mcp_server_runtime == "":
+                logging.info("Repository is missing MCP_Server_Runtime value. Scanning...")
+                return True
+            logging.info(f"Repository was updated within the last [{days_threshold}] days and has MCP_Server_Runtime set. Skipping...")
+            return False
+    except (ValueError, TypeError) as e:
+        logging.warning(f"Error checking if this repo needs to be rescanned for MCP composition: [{e}]")
+        return True
+
+def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
     """
     Determines if a repository should be scanned based on its last scan timestamp
     and completeness of alert data.

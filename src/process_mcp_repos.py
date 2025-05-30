@@ -547,7 +547,7 @@ def main():
             skipped_non_fork_count += 1 if skipped_non_fork else 0
             failed_fork_count += 1 if failed_fork else 0
             if processed_inc or skipped_non_fork or failed_fork:  # Log separator only if something happened
-              logging.info("")
+                logging.info("")
 
         # Reporting
         logging.info("")
