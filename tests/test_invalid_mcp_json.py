@@ -99,5 +99,63 @@ class TestInvalidMcpJson(unittest.TestCase):
         # The first server in the config is "filesystem", so we expect the command to be "npx"
         self.assertEqual(info["command"], "npx", f"Expected 'npx' command but got {info['command']}")
 
+    def test_trailing_comma_in_env_object(self):
+        """Test scanning a JSON with trailing commas in env object."""
+        # Create a separate temporary directory for this test to avoid interference
+        import tempfile
+        trailing_comma_temp_dir = Path(tempfile.mkdtemp())
+        
+        try:
+            # Create a test JSON with trailing commas before closing braces - simplified version
+            invalid_json_with_trailing_commas = """{
+  "mcpServers": {
+    "test-server": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-test"],
+      "env": {
+        "OUTPUT_MODE": "file",
+        "API_KEY": "test-key",
+      }
+    }
+  }
+}"""
+            
+            # Create a temporary test file with the invalid JSON
+            trailing_comma_file = trailing_comma_temp_dir / "trailing_comma_test.md"
+            with open(trailing_comma_file, "w") as f:
+                f.write("# MCP Configuration with Trailing Comma\n\n")
+                f.write("```json\n")
+                f.write(invalid_json_with_trailing_commas)
+                f.write("\n```\n")
+            
+            # Use scan_repo_for_mcp_composition to scan the directory
+            mcp_composition, error_details = scan_repo_for_mcp_composition(trailing_comma_temp_dir)
+            
+            # The scan should succeed after preprocessing fixes the trailing comma
+            self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition failed to parse JSON with trailing comma")
+            self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("test-server", mcp_composition["mcpServers"], "'test-server' key missing in parsed composition")
+            self.assertIn("env", mcp_composition["mcpServers"]["test-server"], "'env' key missing in parsed composition")
+            
+            # Verify the env object was parsed correctly despite the trailing comma
+            env_obj = mcp_composition["mcpServers"]["test-server"]["env"]
+            self.assertIn("OUTPUT_MODE", env_obj, "'OUTPUT_MODE' key missing in env object")
+            self.assertIn("API_KEY", env_obj, "'API_KEY' key missing in env object")
+            self.assertEqual(env_obj["OUTPUT_MODE"], "file", f"Expected 'file' but got {env_obj['OUTPUT_MODE']}")
+            self.assertEqual(env_obj["API_KEY"], "test-key", f"Expected 'test-key' but got {env_obj['API_KEY']}")
+            
+            # Test: call get_composition_info to ensure it can process the composition
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertIn("command", info, "'command' key missing in composition info")
+            self.assertEqual(info["command"], "npx", f"Expected 'npx' command but got {info['command']}")
+            
+        finally:
+            # Clean up the temporary directory
+            if trailing_comma_temp_dir.exists():
+                shutil.rmtree(trailing_comma_temp_dir)
+
 if __name__ == "__main__":
     unittest.main()

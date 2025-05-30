@@ -376,6 +376,7 @@ def preprocess_json_string(json_str: str) -> str:
     Preprocesses a JSON string to fix common issues with MCP composition files.
     
     Fixes:
+    - Trailing commas before closing braces (e.g., "key": "value",})
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
@@ -386,8 +387,11 @@ def preprocess_json_string(json_str: str) -> str:
     Returns:
         A preprocessed JSON string that should be valid JSON
     """
+    # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
+    fixed_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+    
     # Fix empty values after a colon (e.g., "key":,)
-    fixed_str = re.sub(r'":,', '":"",', json_str)
+    fixed_str = re.sub(r'":,', '":"",', fixed_str)
     fixed_str = re.sub(r'": ,', '":"",', fixed_str)
     
     # Fix entries with nothing after the colon at the end of a line
@@ -398,7 +402,10 @@ def preprocess_json_string(json_str: str) -> str:
     fixed_str = re.sub(r': *([A-Za-z0-9]+)([,}])', r':"\\1"\\2', fixed_str)
     
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
-    fixed_str = re.sub(r'"([^"]+)"(\s*[,}])', r'"\1":""\\2', fixed_str)
+    # This should only match quoted strings that are NOT part of a key: value pair
+    # and are NOT inside arrays (followed by ] rather than })
+    # Look for pattern: "string" followed by comma/closing brace but NOT preceded by : " and NOT followed by ]
+    fixed_str = re.sub(r'(?<!: )"([^"]+)"(\s*,\s*})', r'"\1":""\\2', fixed_str)
     
     return fixed_str
 
