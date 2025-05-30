@@ -109,7 +109,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "DependencyAlerts_Critical": 1,
             "DependencyAlerts_High": 1,
             "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
+            "DependencyAlerts_Low": 1,
+            "MCP_Server_Runtime": "uv"
         }
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
@@ -168,7 +169,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "DependencyAlerts_Critical": 1,
             "DependencyAlerts_High": 1,
             "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
+            "DependencyAlerts_Low": 1,
+            "MCP_Server_Runtime": "uv"
         }
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
@@ -224,7 +226,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "DependencyAlerts_Critical": 1,
             "DependencyAlerts_High": 1,
             "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
+            "DependencyAlerts_Low": 1,
+            "MCP_Server_Runtime": "uv"
         }
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
@@ -274,6 +277,7 @@ class TestShouldScanRepository(unittest.TestCase):
             "SecretAlerts_Total": 0,
             "DependencyAlerts": 0,  # Zero, so we don't care about missing breakdowns
             # Missing severity breakdowns shouldn't trigger a rescan when alerts = 0
+            "MCP_Server_Runtime": "uv"
         }
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
@@ -284,7 +288,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": " " + yesterday,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace and return False (recently scanned)
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -296,7 +301,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": yesterday + " ",
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace and return False (recently scanned)
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -308,7 +314,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": " " + yesterday + " ",
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace and return False (recently scanned)
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -320,7 +327,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": yesterday + "\n",
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace and return False (recently scanned)
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -333,7 +341,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": problematic_timestamp,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -346,7 +355,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": problematic_timestamp,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace (this timestamp is in the future, so should return False)
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -365,7 +375,8 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": timestamp,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
@@ -377,10 +388,74 @@ class TestShouldScanRepository(unittest.TestCase):
             "GHAS_Status_Updated": timestamp,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "MCP_Server_Runtime": "uv"
         }
         # Should parse successfully after stripping whitespace
         self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_missing_mcp_server_runtime(self):
+        """Test when MCP_Server_Runtime is missing, should trigger rescan."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": yesterday,
+            "CodeAlerts": 5,
+            "CodeAlerts_Critical": 1,
+            "CodeAlerts_High": 2,
+            "CodeAlerts_Medium": 1,
+            "CodeAlerts_Low": 1,
+            "SecretAlerts_Total": 3,
+            "SecretAlerts_By_Type": "{}",
+            "DependencyAlerts": 4,
+            "DependencyAlerts_Critical": 1,
+            "DependencyAlerts_High": 1,
+            "DependencyAlerts_Moderate": 1,
+            "DependencyAlerts_Low": 1
+            # Missing MCP_Server_Runtime
+        }
+        self.assertTrue(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_mcp_server_runtime_present(self):
+        """Test when MCP_Server_Runtime is present, should not trigger rescan."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": yesterday,
+            "CodeAlerts": 5,
+            "CodeAlerts_Critical": 1,
+            "CodeAlerts_High": 2,
+            "CodeAlerts_Medium": 1,
+            "CodeAlerts_Low": 1,
+            "SecretAlerts_Total": 3,
+            "SecretAlerts_By_Type": "{}",
+            "DependencyAlerts": 4,
+            "DependencyAlerts_Critical": 1,
+            "DependencyAlerts_High": 1,
+            "DependencyAlerts_Moderate": 1,
+            "DependencyAlerts_Low": 1,
+            "MCP_Server_Runtime": "uv"  # Present
+        }
+        self.assertFalse(should_scan_repository(properties, "GHAS_Status_Updated", 7))
+
+    def test_mcp_server_runtime_empty_string(self):
+        """Test when MCP_Server_Runtime is empty string, should trigger rescan."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        properties = {
+            "GHAS_Status_Updated": yesterday,
+            "CodeAlerts": 5,
+            "CodeAlerts_Critical": 1,
+            "CodeAlerts_High": 2,
+            "CodeAlerts_Medium": 1,
+            "CodeAlerts_Low": 1,
+            "SecretAlerts_Total": 3,
+            "SecretAlerts_By_Type": "{}",
+            "DependencyAlerts": 4,
+            "DependencyAlerts_Critical": 1,
+            "DependencyAlerts_High": 1,
+            "DependencyAlerts_Moderate": 1,
+            "DependencyAlerts_Low": 1,
+            "MCP_Server_Runtime": ""  # Empty string should trigger rescan
+        }
+        self.assertTrue(should_scan_repository(properties, "GHAS_Status_Updated", 7))
 
 
 if __name__ == "__main__":

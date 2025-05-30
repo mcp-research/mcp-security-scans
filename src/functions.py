@@ -6,6 +6,7 @@ import os
 import sys
 from typing import Any, Dict
 
+
 def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
     """
     Parses a timestamp value into a datetime object.
@@ -47,10 +48,11 @@ def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
         # Non-string values cannot be parsed by fromisoformat
         raise ValueError(f"Expected string timestamp, got {type(timestamp_value).__name__}")
 
+
 def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
     """
     Determines if a repository should be scanned based on its last scan timestamp
-    and completeness of alert data.
+    and completeness of alert data, including MCP_Server_Runtime configuration.
 
     Args:
         properties: Dictionary of repository properties.
@@ -97,7 +99,6 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
             # Both conditions: SecretAlerts_Total not set OR (SecretAlerts_Total > 0 and SecretAlerts_By_Type not set)
             try:
                 secret_alerts_total = int(properties.get("SecretAlerts_Total", 0))
-                secret_alerts_by_type = int(properties.get("SecretAlerts_By_Type", 0))
             except (ValueError, TypeError):
                 # If we can't parse the values, we should scan
                 logging.info("Repository has invalid secret alerts values. Scanning...")
@@ -107,7 +108,7 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
                 logging.info("Repository is missing secret alerts total. Scanning...")
                 return True
 
-            if secret_alerts_total > 0 and secret_alerts_by_type is None:
+            if secret_alerts_total > 0 and "SecretAlerts_By_Type" not in properties:
                 logging.info("Repository has secret alerts but missing type breakdown. Scanning...")
                 return True
 
@@ -124,11 +125,18 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
                     logging.info("Repository has dependency alerts but missing severity breakdowns. Scanning...")
                     return True
 
+            # Check if MCP_Server_Runtime is configured
+            mcp_server_runtime = properties.get("MCP_Server_Runtime")
+            if not mcp_server_runtime:
+                logging.info("Repository is missing MCP_Server_Runtime configuration. Scanning...")
+                return True
+
             logging.info(f"Repository was scanned within the last [{days_threshold}] days and has complete data. Skipping...")
             return False
     except (ValueError, TypeError) as e:
         logging.warning(f"Error checking if this repo needs to be rescanned or not: [{e}]")
         return True
+
 
 def is_running_interactively() -> bool:
     """
