@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
-import unittest
 import datetime
 import logging
 import os
 import sys
+import unittest
+
+# Import the functions to be tested
+from src.functions import parse_timestamp, should_scan_repository
 
 # Find the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,11 +15,64 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Add the project root directory to the Python path
 sys.path.insert(0, project_root)
 
-# Import the functions to be tested
-from src.functions import should_scan_repository
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
+
+
+class TestParseTimestamp(unittest.TestCase):
+    """Tests for the parse_timestamp function."""
+
+    def test_none_timestamp(self):
+        """Test when timestamp is None."""
+        with self.assertRaises(ValueError) as context:
+            parse_timestamp(None)
+        self.assertEqual(str(context.exception), "No timestamp provided")
+
+    def test_testing_flag(self):
+        """Test when timestamp is set to 'Testing'."""
+        with self.assertRaises(ValueError) as context:
+            parse_timestamp("Testing")
+        self.assertEqual(str(context.exception), "Testing flag")
+
+    def test_valid_timestamp(self):
+        """Test with a valid timestamp."""
+        now = datetime.datetime.now()
+        timestamp = now.isoformat()
+        parsed = parse_timestamp(timestamp)
+        self.assertEqual(parsed.year, now.year)
+        self.assertEqual(parsed.month, now.month)
+        self.assertEqual(parsed.day, now.day)
+
+    def test_valid_timestamp_with_whitespace(self):
+        """Test with a valid timestamp that has whitespace."""
+        now = datetime.datetime.now()
+        timestamp = f" {now.isoformat()} "
+        parsed = parse_timestamp(timestamp)
+        self.assertEqual(parsed.year, now.year)
+        self.assertEqual(parsed.month, now.month)
+        self.assertEqual(parsed.day, now.day)
+
+    def test_timestamp_without_timezone(self):
+        """Test with a timestamp that doesn't have timezone info."""
+        timestamp = "2025-05-28T20:36:15.994131"
+        parsed = parse_timestamp(timestamp)
+        self.assertEqual(parsed.year, 2025)
+        self.assertEqual(parsed.month, 5)
+        self.assertEqual(parsed.day, 28)
+        self.assertEqual(parsed.hour, 20)
+        self.assertEqual(parsed.minute, 36)
+        self.assertEqual(parsed.second, 15)
+
+    def test_invalid_timestamp(self):
+        """Test with an invalid timestamp."""
+        with self.assertRaises(ValueError):
+            parse_timestamp("not-a-timestamp")
+
+    def test_non_string_timestamp(self):
+        """Test with a non-string timestamp."""
+        with self.assertRaises(ValueError):
+            parse_timestamp(123)
+
 
 class TestShouldScanRepository(unittest.TestCase):
     """Tests for the should_scan_repository function."""
