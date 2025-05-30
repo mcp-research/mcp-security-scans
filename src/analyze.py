@@ -725,7 +725,7 @@ def main():
             fork_default_branch = repo.default_branch if repo else "main"
 
             # todo: convert Constants.ScanSettings.GHAS_STATUS_UPDATED to a new field "LastUpdated" that reflects the last time the fork was updated
-            if should_scan_repository_for_MCP_Composition(existing_repos_properties, repo, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
+            if should_scan_repository_for_MCP_Composition(existing_repos_properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
                 # clone the repo to a temp directory to check for MCP composition
                 local_repo_path = Path(f"tmp/{repo.name}")
                 clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
