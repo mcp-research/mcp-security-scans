@@ -37,32 +37,6 @@ logging.basicConfig(
 logging.getLogger("githubkit").setLevel(logging.DEBUG)
 load_dotenv()
 
-# Constants
-TARGET_ORG = "mcp-research"  # The organization to scan
-GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
-
-# Property names for total alert counts
-CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
-DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
-
-# Property names for code scanning alerts by severity
-CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
-CODE_ALERTS_HIGH = "CodeAlerts_High"
-CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
-CODE_ALERTS_LOW = "CodeAlerts_Low"
-
-# Property names for secret scanning alerts (no standard severity levels)
-SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
-SECRET_ALERTS_BY_TYPE = "SecretAlerts_By_Type"
-
-# Property names for dependency alerts by severity
-DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
-DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
-DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
-
-SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
-
 
 def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
@@ -374,32 +348,32 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
 def preprocess_json_string(json_str: str) -> str:
     """
     Preprocesses a JSON string to fix common issues with MCP composition files.
-    
+
     Fixes:
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
-    
+
     Args:
         json_str: The JSON string to preprocess
-        
+
     Returns:
         A preprocessed JSON string that should be valid JSON
     """
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', json_str)
     fixed_str = re.sub(r'": ,', '":"",', fixed_str)
-    
+
     # Fix entries with nothing after the colon at the end of a line
     fixed_str = re.sub(r'":(\s*})', '":""\\1', fixed_str)
     fixed_str = re.sub(r'": (\s*})', '":""\\1', fixed_str)
-    
+
     # Fix unquoted placeholder values like XXXXXX (not followed by a comma or closing brace)
     fixed_str = re.sub(r': *([A-Za-z0-9]+)([,}])', r':"\\1"\\2', fixed_str)
-    
+
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
     fixed_str = re.sub(r'"([^"]+)"(\s*[,}])', r'"\1":""\\2', fixed_str)
-    
+
     return fixed_str
 
 def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict], Optional[Dict]]:
@@ -708,7 +682,7 @@ def main():
 
             # First, extract runtime information if possible
             runtime = {}
-            
+
             # Get the default branch and GitHub token for cloning
             fork_default_branch = repo.default_branch if repo else "main"
             github_token = os.getenv("GITHUB_TOKEN")
