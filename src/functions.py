@@ -6,6 +6,9 @@ import os
 import sys
 from typing import Any, Dict
 
+from .constants import Constants
+
+
 def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
     """
     Parses a timestamp value into a datetime object.
@@ -47,7 +50,48 @@ def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
         # Non-string values cannot be parsed by fromisoformat
         raise ValueError(f"Expected string timestamp, got {type(timestamp_value).__name__}")
 
-def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
+
+def should_scan_repository_for_MCP_Composition(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
+    """
+    Determines if a repository should be scanned for MCP composition based on its last update timestamp
+    and whether MCP_Server_Runtime has been set.
+
+    Args:
+        properties: Dictionary of repository properties.
+        timestamp_property: Name of the timestamp property to check (should be 'LastUpdated').
+        days_threshold: Minimum days between scans.
+
+    Returns:
+        True if the repository should be scanned, False otherwise.
+    """
+    last_updated = properties.get(timestamp_property)
+
+    if not last_updated:
+        logging.info("Repository has never been updated. Scanning for MCP composition...")
+        return True
+
+    if last_updated == "Testing":
+        logging.info("Repository is marked for testing. Scanning for MCP composition...")
+        return True
+
+    try:
+        last_updated_time = parse_timestamp(last_updated)
+        if datetime.datetime.now() - last_updated_time > datetime.timedelta(days=days_threshold):
+            logging.info(f"Repository was last updated more than [{days_threshold}] days ago. Scanning...")
+            return True
+        else:
+            mcp_server_runtime = properties.get("MCP_Server_Runtime")
+            if mcp_server_runtime is None or mcp_server_runtime == "":
+                logging.info("Repository is missing MCP_Server_Runtime value. Scanning...")
+                return True
+            logging.info(f"Repository was updated within the last [{days_threshold}] days and has MCP_Server_Runtime set. Skipping scanning for MCP composition...")
+            return False
+    except (ValueError, TypeError) as e:
+        logging.warning(f"Error checking if this repo needs to be rescanned for MCP composition: [{e}]")
+        return True
+
+
+def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
     """
     Determines if a repository should be scanned based on its last scan timestamp
     and completeness of alert data.
@@ -64,18 +108,18 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
     last_scanned = properties.get(timestamp_property)
 
     if not last_scanned:
-        logging.info("Repository has never been scanned. Scanning...")
+        logging.info("Repository has never been scanned. Scanning GHAS alerts...")
         return True
 
     if last_scanned == "Testing":
-        logging.info("Repository is marked for testing. Scanning...")
+        logging.info("Repository is marked for testing. Scanning GHAS alerts...")
         return True
 
     try:
         last_scanned_time = parse_timestamp(last_scanned)
 
         if datetime.datetime.now() - last_scanned_time > datetime.timedelta(days=days_threshold):
-            logging.info(f"Repository was last scanned more than [{days_threshold}] days ago. Scanning...")
+            logging.info(f"Repository was last scanned more than [{days_threshold}] days ago. Scanning GHAS alerts...")
             return True
         else:
             # Additional conditions to check if we need to rescan despite recent timestamp
@@ -90,25 +134,25 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
                 has_low = "CodeAlerts_Low" in properties
 
                 if not (has_critical and has_high and has_medium and has_low):
-                    logging.info("Repository has code alerts but missing severity breakdowns. Scanning...")
+                    logging.info("Repository has code alerts but missing severity breakdowns. Scanning GHAS alerts...")
                     return True
 
             # Check secret scanning alerts
             # Both conditions: SecretAlerts_Total not set OR (SecretAlerts_Total > 0 and SecretAlerts_By_Type not set)
             try:
                 secret_alerts_total = int(properties.get("SecretAlerts_Total", 0))
-                secret_alerts_by_type = int(properties.get("SecretAlerts_By_Type", 0))
+                secret_alerts_by_type = properties.get("SecretAlerts_By_Type")
             except (ValueError, TypeError):
                 # If we can't parse the values, we should scan
-                logging.info("Repository has invalid secret alerts values. Scanning...")
+                logging.info("Repository has invalid secret alerts values. Scanning GHAS alerts...")
                 return True
 
             if "SecretAlerts_Total" not in properties:
-                logging.info("Repository is missing secret alerts total. Scanning...")
+                logging.info("Repository is missing secret alerts total. Scanning GHAS alerts...")
                 return True
 
             if secret_alerts_total > 0 and secret_alerts_by_type is None:
-                logging.info("Repository has secret alerts but missing type breakdown. Scanning...")
+                logging.info("Repository has secret alerts but missing type breakdown. Scanning GHAS alerts...")
                 return True
 
             # Check dependency alerts
@@ -121,14 +165,49 @@ def should_scan_repository(properties: Dict[str, Any], timestamp_property: str, 
                 has_low = "DependencyAlerts_Low" in properties
 
                 if not (has_critical and has_high and has_moderate and has_low):
-                    logging.info("Repository has dependency alerts but missing severity breakdowns. Scanning...")
+                    logging.info("Repository has dependency alerts but missing severity breakdowns. Scanning GHAS alerts...")
                     return True
 
-            logging.info(f"Repository was scanned within the last [{days_threshold}] days and has complete data. Skipping...")
+            logging.info(f"Repository was scanned within the last [{days_threshold}] days and has complete data. Skipping GHAS scan...")
             return False
     except (ValueError, TypeError) as e:
         logging.warning(f"Error checking if this repo needs to be rescanned or not: [{e}]")
         return True
+
+
+def get_repository_properties(existing_repos_properties: Dict[str, Any], repo, gh: Any) -> Dict[str, Any]:
+
+    owner = repo.owner.login if repo.owner else Constants.Org.TARGET_ORG
+    repo_name = repo.name
+
+    # Get existing properties - fixed to handle the custom properties structure correctly
+    properties = {}
+    try:
+        # Search in the existing properties list
+        for repo_properties in existing_repos_properties:
+            # todo: there has to be a quicker way to do this then a for loop?
+            if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
+                # Extract properties from the custom properties object
+                for prop in repo_properties.properties:
+                    properties[prop.property_name] = prop.value
+                logging.info(f"Found existing custom properties for {owner}/{repo_name}")
+                break
+
+        # If no properties found in the cached list, fetch directly
+        if not properties:
+            response = gh.rest.repos.get_custom_properties_values(
+                owner=owner,
+                repo=repo_name
+            )
+            props = response.json()
+            for prop in props:
+                properties[prop["property_name"]] = prop["value"]
+
+        return properties
+
+    except Exception as prop_error:
+        logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
+
 
 def is_running_interactively() -> bool:
     """
@@ -146,3 +225,10 @@ def is_running_interactively() -> bool:
     has_debugger = sys.gettrace() is not None
 
     return is_tty or has_debugger
+
+
+def log_separator():
+    """
+    Logs a separator line to visually separate log messages.
+    """
+    logging.info("------------------------------------------------------------")
