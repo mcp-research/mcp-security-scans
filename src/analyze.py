@@ -333,6 +333,7 @@ def preprocess_json_string(json_str: str) -> str:
     Preprocesses a JSON string to fix common issues with MCP composition files.
 
     Fixes:
+    - Comments using // or # syntax
     - Trailing commas before closing braces (e.g., "key": "value",})
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
@@ -344,8 +345,32 @@ def preprocess_json_string(json_str: str) -> str:
     Returns:
         A preprocessed JSON string that should be valid JSON
     """
+    # Handle inline comments more carefully
+    # For // comments, we need to be careful not to remove JSON that follows
+    # Look for patterns where comments are between JSON elements
+
+    # First, let's try to identify and remove inline comments that are clearly not part of JSON values
+    # Pattern: //[text that is clearly a comment]" followed by JSON
+    fixed_str = re.sub(r'//[^"]*?"', '"', json_str)
+
+    # Handle inline # comments more carefully
+    # Pattern 1: ,#comment"key": -> ,"key":
+    fixed_str = re.sub(r',#[^"]*"', ',"', fixed_str)
+
+    # Pattern 2: "value"#comment} -> "value"}
+    fixed_str = re.sub(r'"#[^}]*}', '"}', fixed_str)
+
+    # Pattern 3: {#comment"key": -> {"key":
+    fixed_str = re.sub(r'{#[^"]*"', '{"', fixed_str)
+
+    # Remove standalone // comments to end of line (for multi-line JSON)
+    fixed_str = re.sub(r'//.*$', '', fixed_str, flags=re.MULTILINE)
+
+    # Remove # comments to end of line (for multi-line JSON)
+    fixed_str = re.sub(r'#.*$', '', fixed_str, flags=re.MULTILINE)
+
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
-    fixed_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+    fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
     
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
