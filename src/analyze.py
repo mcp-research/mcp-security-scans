@@ -17,7 +17,12 @@ from githubkit import GitHub
 from githubkit.exception import RequestFailed
 from githubkit.versions.latest.models import FullRepository
 
-from .functions import should_scan_repository
+from .functions import (
+    should_scan_repository_for_GHAS_alerts,
+    should_scan_repository_for_MCP_Composition,
+    get_repository_properties,
+    log_separator
+)
 from .github import (
     get_github_client,
     list_all_repositories_for_org,
@@ -36,32 +41,6 @@ logging.basicConfig(
 )
 logging.getLogger("githubkit").setLevel(logging.DEBUG)
 load_dotenv()
-
-# Constants
-TARGET_ORG = "mcp-research"  # The organization to scan
-GHAS_STATUS_UPDATED = "GHAS_Status_Updated"  # Property name for last scan timestamp
-
-# Property names for total alert counts
-CODE_ALERTS = "CodeAlerts"  # Property name for code scanning alerts
-DEPENDENCY_ALERTS = "DependencyAlerts"  # Property name for dependency alerts
-
-# Property names for code scanning alerts by severity
-CODE_ALERTS_CRITICAL = "CodeAlerts_Critical"
-CODE_ALERTS_HIGH = "CodeAlerts_High"
-CODE_ALERTS_MEDIUM = "CodeAlerts_Medium"
-CODE_ALERTS_LOW = "CodeAlerts_Low"
-
-# Property names for secret scanning alerts (no standard severity levels)
-SECRET_ALERTS_TOTAL = "SecretAlerts_Total"
-SECRET_ALERTS_BY_TYPE = "SecretAlerts_By_Type"
-
-# Property names for dependency alerts by severity
-DEPENDENCY_ALERTS_CRITICAL = "DependencyAlerts_Critical"
-DEPENDENCY_ALERTS_HIGH = "DependencyAlerts_High"
-DEPENDENCY_ALERTS_MODERATE = "DependencyAlerts_Moderate"
-DEPENDENCY_ALERTS_LOW = "DependencyAlerts_Low"
-
-SCAN_FREQUENCY_DAYS = 7  # Minimum days between scans
 
 
 def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
@@ -115,9 +94,9 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
             elif severity == "error":
                 result["medium"] += 1
 
-        logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +
-                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
-                     f"Medium: {result['medium']} (includes 'medium' and 'error'), " +
+        logging.info(f"Found [{result['total']}] open code scanning alerts for [{owner}/{repo}], " +  # noqa: W504
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +  # noqa: W504
+                     f"Medium: {result['medium']} (includes 'medium' and 'error'), " +  # noqa: W504
                      f"Low: {result['low']} (includes 'low', 'warning', and 'note').")
 
         return result
@@ -132,6 +111,7 @@ def get_code_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     except Exception as e:
         logging.error(f"Unexpected error getting code scanning alerts for [{owner}/{repo}]: {e}")
         return result
+
 
 def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
@@ -187,6 +167,7 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]
         logging.error(f"Unexpected error getting secret scanning alerts for [{owner}/{repo}]: {e}")
         return result
 
+
 def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
     """
     Gets the count of dependency vulnerability alerts for a repository, categorized by severity.
@@ -233,8 +214,8 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
             elif severity == "low":
                 result["low"] += 1
 
-        logging.info(f"Found [{result['total']}] open dependency alerts for [{owner}/{repo}], " +
-                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +
+        logging.info(f"Found [{result['total']}] open dependency alerts for [{owner}/{repo}], " +  # noqa: W504
+                     f"by severity: Critical: {result['critical']}, High: {result['high']}, " +  # noqa: W504
                      f"Moderate: {result['moderate']}, Low: {result['low']}")
 
         return result
@@ -250,7 +231,8 @@ def get_dependency_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]:
         logging.error(f"Unexpected error getting dependency alerts for [{owner}/{repo}]: {e}")
         return result
 
-def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_properties: List[Dict], runtime_info: Optional[Dict] = None) -> Tuple[bool, Dict[str, int], Dict[str, int], Dict[str, int]]:
+
+def scan_repository_for_alerts(gh: Any, repo: FullRepository, properties: List[Dict], runtime_info: Optional[Dict] = None) -> Tuple[bool, Dict[str, int], Dict[str, int], Dict[str, int]]:
     """
     Scans a single repository for GHAS alerts and updates its properties.
 
@@ -295,34 +277,8 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
             logging.info(f"Repository {owner}/{repo_name} is not a fork. Skipping.")
             return False, code_alerts, secret_alerts, dependency_alerts
 
-        # Get existing properties - fixed to handle the custom properties structure correctly
-        properties = {}
-        try:
-            # Search in the existing properties list
-            for repo_properties in existing_repos_properties:
-                if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
-                    # Extract properties from the custom properties object
-                    for prop in repo_properties.properties:
-                        properties[prop.property_name] = prop.value
-                    logging.info(f"Found existing custom properties for {owner}/{repo_name}")
-                    break
-
-            # If no properties found in the cached list, fetch directly
-            if not properties:
-                response = gh.rest.repos.get_custom_properties_values(
-                    owner=owner,
-                    repo=repo_name
-                )
-                props = response.json()
-                for prop in props:
-                    properties[prop["property_name"]] = prop["value"]
-                logging.info(f"Fetched custom properties for {owner}/{repo_name}")
-        except Exception as prop_error:
-            logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
-            # Continue with empty properties
-
         # Check if we should scan this repository based on timestamp
-        if not should_scan_repository(properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
+        if not should_scan_repository_for_GHAS_alerts(properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
             return False, code_alerts, secret_alerts, dependency_alerts
 
         logging.info(f"Scanning repository {owner}/{repo_name} for GHAS alerts...")
@@ -371,19 +327,20 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, existing_repos_pro
         logging.error(f"Failed to scan repository [{owner}/{repo_name}]: {e}")
         return False, code_alerts, secret_alerts, dependency_alerts
 
+
 def preprocess_json_string(json_str: str) -> str:
     """
     Preprocesses a JSON string to fix common issues with MCP composition files.
-    
+
     Fixes:
     - Trailing commas before closing braces (e.g., "key": "value",})
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
-    
+
     Args:
         json_str: The JSON string to preprocess
-        
+
     Returns:
         A preprocessed JSON string that should be valid JSON
     """
@@ -393,21 +350,22 @@ def preprocess_json_string(json_str: str) -> str:
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
     fixed_str = re.sub(r'": ,', '":"",', fixed_str)
-    
+
     # Fix entries with nothing after the colon at the end of a line
     fixed_str = re.sub(r'":(\s*})', '":""\\1', fixed_str)
     fixed_str = re.sub(r'": (\s*})', '":""\\1', fixed_str)
-    
+
     # Fix unquoted placeholder values like XXXXXX (not followed by a comma or closing brace)
     fixed_str = re.sub(r': *([A-Za-z0-9]+)([,}])', r':"\\1"\\2', fixed_str)
-    
+
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
+
     # This should only match quoted strings that are NOT part of a key: value pair
     # and are NOT inside arrays (followed by ] rather than })
     # Look for pattern: "string" followed by comma/closing brace but NOT preceded by : " and NOT followed by ]
     fixed_str = re.sub(r'(?<!: )"([^"]+)"(\s*,\s*})', r'"\1":""\\2', fixed_str)
-    
     return fixed_str
+
 
 def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict], Optional[Dict]]:
     """
@@ -585,6 +543,7 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
 
     return mcp_composition, error_details
 
+
 def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
     """
     Extracts runtime command info from the MCP composition dict.
@@ -635,6 +594,7 @@ def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
             "json_config": json.dumps(composition, indent=2) if composition else "None"
         }
         return {}, error_details
+
 
 def main():
     """Main execution function."""
@@ -705,6 +665,17 @@ def main():
 
         logging.info(f"Found [{total_repos}] repositories in organization [{args.target_org}]")
 
+        github_token = os.getenv("GITHUB_TOKEN")
+        token_auth_gh = None
+        if github_token:
+            # Create a GitHub client authenticated with the token for issue creation
+            token_auth_gh = GitHub(github_token)
+            logging.info("Created GitHub client with token for issue creation if needed")
+        else:
+            logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
+
+        log_separator()
+
         # Process repositories
         for idx, repo in enumerate(existing_repos):
             if scanned_repos >= args.num_repos:
@@ -715,52 +686,41 @@ def main():
 
             # First, extract runtime information if possible
             runtime = {}
-            
+
             # Get the default branch and GitHub token for cloning
             fork_default_branch = repo.default_branch if repo else "main"
-            github_token = os.getenv("GITHUB_TOKEN")
-            token_auth_gh = None
+            repo_properties = get_repository_properties(existing_repos_properties, repo, gh)
 
-            if github_token:
-                # Create a GitHub client authenticated with the token for issue creation
-                token_auth_gh = GitHub(github_token)
-                logging.info("Created GitHub client with token for issue creation if needed")
-            else:
-                logging.warning("GITHUB_TOKEN environment variable not set. Cannot create issues for analysis failures if needed.")
+            # todo: convert Constants.ScanSettings.GHAS_STATUS_UPDATED to a new field "LastUpdated" that reflects the last time the fork was updated
+            if should_scan_repository_for_MCP_Composition(repo_properties, Constants.ScanSettings.GHAS_STATUS_UPDATED, Constants.ScanSettings.SCAN_FREQUENCY_DAYS):
+                # clone the repo to a temp directory to check for MCP composition
+                local_repo_path = Path(f"tmp/{repo.name}")
+                clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
 
-            # clone the repo to a temp directory to check for MCP composition
-            local_repo_path = Path(f"tmp/{repo.name}")
-            clone_repository(gh, repo.owner.login, repo.name, fork_default_branch, local_repo_path)
+                # Scan repository for MCP composition
+                composition, scan_error = scan_repo_for_mcp_composition(local_repo_path)
 
-            # Scan repository for MCP composition
-            composition, scan_error = scan_repo_for_mcp_composition(local_repo_path)
-
-            # Extract runtime information if composition was found
-            if composition and not scan_error:
-                logging.info(f"Found MCP composition in repository [{repo.name}]")
-                try:
-                    runtime, analysis_error = get_composition_info(composition)
-                    if analysis_error or not runtime:
-                        error_msg = analysis_error.get("error_message", "Unknown error") if analysis_error else "Empty result from get_composition_info"
-                        logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: {error_msg}")
-                        runtime = {}  # Set to empty dict if analysis failed
-                    else:
-                        logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
-                except Exception as e:
-                    logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
-                    runtime = {}  # Set to empty dict if exception occurred
-            elif scan_error:
-                logging.error(f"Failed to scan MCP composition in repository [{repo.name}]: {scan_error.get('error_message', 'Unknown error')}")
-                runtime = {}
-            else:
-                logging.info(f"No MCP composition found in repository [{repo.name}]")
-                runtime = {}
-
-            # Now scan repository for GHAS alerts with runtime information
-            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, existing_repos_properties, runtime)
-
-            if success:
-                scanned_repos += 1
+                # Extract runtime information if composition was found
+                if composition and not scan_error:
+                    logging.info(f"Found MCP composition in repository [{repo.name}]")
+                    try:
+                        runtime, analysis_error = get_composition_info(composition)
+                        if analysis_error or not runtime:
+                            error_msg = analysis_error.get("error_message", "Unknown error") if analysis_error else "Empty result from get_composition_info"
+                            logging.warning(f"Failed to analyze MCP composition for [{repo.name}]: {error_msg}")
+                            runtime = {}  # Set to empty dict if analysis failed
+                        else:
+                            scanned_repos += 1
+                            logging.info(f"MCP runtime info for [{repo.name}]: {runtime}")
+                    except Exception as e:
+                        logging.error(f"Error analyzing MCP composition for [{repo.name}]: {e}")
+                        runtime = {}  # Set to empty dict if exception occurred
+                elif scan_error:
+                    logging.error(f"Failed to scan MCP composition in repository [{repo.name}]: {scan_error.get('error_message', 'Unknown error')}")
+                    runtime = {}
+                else:
+                    logging.info(f"No MCP composition found in repository [{repo.name}]")
+                    runtime = {}
 
                 # Handle composition analysis failures for issue creation
                 if scan_error:
@@ -791,6 +751,12 @@ def main():
                         create_issue(token_auth_gh, args.target_org, "mcp-security-scans",
                                      issue_title, issue_body, ["analysis-failure"])
 
+            # Now scan repository for GHAS alerts with runtime information
+            success, code_alerts, secret_alerts, dependency_alerts = scan_repository_for_alerts(gh, repo, repo_properties, runtime)
+
+            if success:
+                scanned_repos += 1
+
                 # Add alerts to totals if scan was successful
                 total_code_alerts += code_alerts["total"]
                 total_secret_alerts += secret_alerts["total"]
@@ -805,7 +771,7 @@ def main():
             else:
                 skipped_repos += 1
 
-            logging.info("")  # Add a blank line for readability
+            log_separator()
 
         # --- Generate summary ---
         end_time = datetime.datetime.now()
@@ -839,6 +805,7 @@ def main():
             f"- Moderate: `{total_dependency_alerts_by_severity['moderate']}`",
             f"- Low: `{total_dependency_alerts_by_severity['low']}`",
             "",
+            "**Overall stats**",
             f"- Total execution time: `{duration}`",
             f"- Failed analysis repositories: `{len(failed_analysis_repos)}`"
         ]
@@ -887,6 +854,7 @@ def main():
     except Exception as e:
         logging.error(f"Script failed with an error: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
