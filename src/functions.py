@@ -151,7 +151,7 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
                 logging.info("Repository is missing secret alerts total. Scanning GHAS alerts...")
                 return True
 
-            if secret_alerts_total > 0 and (secret_alerts_by_type is None or secret_alerts_by_type == "{}"):
+            if secret_alerts_total > 0 and (secret_alerts_by_type is None or secret_alerts_by_type == "{}" or secret_alerts_by_type == ""):
                 logging.info("Repository has secret alerts but missing type breakdown. Scanning GHAS alerts...")
                 return True
 
