@@ -144,7 +144,7 @@ def get_secret_scanning_alerts(gh: Any, owner: str, repo: str) -> Dict[str, int]
 
         # Count alerts by secret type
         for alert in alerts:
-            secret_type = alert.secret_type_display_name or alert.secret_type or "Unknown"
+            secret_type = getattr(alert, 'secret_type_display_name', None) or getattr(alert, 'secret_type', None) or "Unknown"
             if secret_type in result["types"]:
                 result["types"][secret_type] += 1
             else:
