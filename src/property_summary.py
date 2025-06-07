@@ -26,26 +26,20 @@ logging.getLogger("githubkit").setLevel(logging.WARNING)
 load_dotenv()
 
 
-def analyze_property_values(all_properties: List[Dict]) -> Dict[str, Any]:
+def analyze_property_values(all_properties: List[Any]) -> Dict[str, Any]:
     """
     Analyzes all repository properties and generates a summary.
 
     Args:
-        all_properties: List of repository property dictionaries from GitHub API
+        all_properties: List of repository property objects from GitHub API
 
     Returns:
         Dictionary containing analysis results
     """
     logging.info(f"Analyzing properties for [{len(all_properties)}] repositories...")
 
-    # Initialize analysis structures
-    property_stats = defaultdict(lambda: {
-        'total_repos_with_property': 0,
-        'unique_values': set(),
-        'value_counts': Counter(),
-        'numeric_values': [],
-        'repositories': []
-    })
+    # Initialize analysis structures with explicit typing
+    property_stats: Dict[str, Dict[str, Any]] = {}
 
     repos_analyzed = 0
     repos_with_properties = 0
@@ -66,12 +60,24 @@ def analyze_property_values(all_properties: List[Dict]) -> Dict[str, Any]:
                 prop_name = prop.property_name
                 prop_value = prop.value
 
+                # Initialize property stats if not seen before
+                if prop_name not in property_stats:
+                    property_stats[prop_name] = {
+                        'total_repos_with_property': 0,
+                        'unique_values': set(),
+                        'value_counts': Counter(),
+                        'numeric_values': [],
+                        'repositories': [],
+                        'value_to_repos': defaultdict(list)
+                    }
+
                 # Update statistics for this property
                 stats = property_stats[prop_name]
                 stats['total_repos_with_property'] += 1
                 stats['unique_values'].add(prop_value)
                 stats['value_counts'][prop_value] += 1
                 stats['repositories'].append(repo_name)
+                stats['value_to_repos'][prop_value].append(repo_name)
 
                 # Try to parse as numeric value for additional analysis
                 try:
@@ -103,8 +109,14 @@ def analyze_property_values(all_properties: List[Dict]) -> Dict[str, Any]:
             'total_repos_with_property': stats['total_repos_with_property'],
             'unique_value_count': len(stats['unique_values']),
             'most_common_values': stats['value_counts'].most_common(10),
-            'all_unique_values': all_sorted_values
+            'all_unique_values': all_sorted_values,
+            'most_common_with_examples': []  # Will contain tuples of (value, count, example_repos)
         }
+
+        # Create most common values with repository examples
+        for value, count in stats['value_counts'].most_common(10):
+            example_repos = stats['value_to_repos'][value][:5]  # Get up to 5 examples
+            prop_summary['most_common_with_examples'].append((value, count, example_repos))
 
         # Add numeric statistics if we have numeric values
         if stats['numeric_values']:
@@ -208,11 +220,21 @@ def generate_property_summary_report(analysis_results: Dict[str, Any], target_or
                 f.write(f"  Non-zero values: [{stats['count_non_zero']}]\n")
                 f.write(f"  Zero values: [{stats['count_zero']}]\n")
 
-            # Write most common values
+            # Write most common values with repository examples
             f.write("Most common values:\n")
-            for value, count in prop_data['most_common_values']:
+            for value, count, example_repos in prop_data['most_common_with_examples']:
                 percentage = (count / prop_data['total_repos_with_property']) * 100
                 f.write(f"  '{value}': [{count}] repositories ([{percentage:.1f}%])\n")
+
+                # Show repository examples, with special attention to SecretAlerts_Total
+                if example_repos:
+                    if prop_name == "SecretAlerts_Total" or len(example_repos) > 0:
+                        example_text = ", ".join(example_repos)
+                        if len(example_repos) < count:
+                            f.write(f"    Example repositories: [{example_text}]... (and [{count - len(example_repos)}] others)\n")
+                        else:
+                            f.write(f"    Example repositories: [{example_text}]\n")
+                f.write("\n")
 
             # If there are few unique values, list them all
             if prop_data['unique_value_count'] <= 20:
@@ -265,6 +287,18 @@ def generate_json_summary(analysis_results: Dict[str, Any], target_org: str, out
 
                 # Combine None values (first) with sorted non-None values
                 json_prop_data['all_unique_values'] = none_values + sorted_non_none
+
+                # Convert most_common_with_examples tuples to dictionaries for JSON
+                json_prop_data['most_common_with_examples'] = [
+                    {
+                        'value': value,
+                        'count': count,
+                        'percentage': round((count / prop_data['total_repos_with_property']) * 100, 1),
+                        'example_repositories': example_repos
+                    }
+                    for value, count, example_repos in prop_data['most_common_with_examples']
+                ]
+
                 json_data[key][prop_name] = json_prop_data
         else:
             json_data[key] = value
