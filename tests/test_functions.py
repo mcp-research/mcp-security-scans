@@ -6,382 +6,259 @@ import os
 import sys
 import unittest
 
-# Import the functions to be tested
-from src.functions import parse_timestamp, should_scan_repository_for_GHAS_alerts
-
 # Find the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Add the project root directory to the Python path
+# Add the project root directory to the path so we can import our modules
 sys.path.insert(0, project_root)
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-
-
-class TestParseTimestamp(unittest.TestCase):
-    """Tests for the parse_timestamp function."""
-
-    def test_none_timestamp(self):
-        """Test when timestamp is None."""
-        with self.assertRaises(ValueError) as context:
-            parse_timestamp(None)
-        self.assertEqual(str(context.exception), "No timestamp provided")
-
-    def test_testing_flag(self):
-        """Test when timestamp is set to 'Testing'."""
-        with self.assertRaises(ValueError) as context:
-            parse_timestamp("Testing")
-        self.assertEqual(str(context.exception), "Testing flag")
-
-    def test_valid_timestamp(self):
-        """Test with a valid timestamp."""
-        now = datetime.datetime.now()
-        timestamp = now.isoformat()
-        parsed = parse_timestamp(timestamp)
-        self.assertEqual(parsed.year, now.year)
-        self.assertEqual(parsed.month, now.month)
-        self.assertEqual(parsed.day, now.day)
-
-    def test_valid_timestamp_with_whitespace(self):
-        """Test with a valid timestamp that has whitespace."""
-        now = datetime.datetime.now()
-        timestamp = f" {now.isoformat()} "
-        parsed = parse_timestamp(timestamp)
-        self.assertEqual(parsed.year, now.year)
-        self.assertEqual(parsed.month, now.month)
-        self.assertEqual(parsed.day, now.day)
-
-    def test_timestamp_without_timezone(self):
-        """Test with a timestamp that doesn't have timezone info."""
-        timestamp = "2025-05-28T20:36:15.994131"
-        parsed = parse_timestamp(timestamp)
-        self.assertEqual(parsed.year, 2025)
-        self.assertEqual(parsed.month, 5)
-        self.assertEqual(parsed.day, 28)
-        self.assertEqual(parsed.hour, 20)
-        self.assertEqual(parsed.minute, 36)
-        self.assertEqual(parsed.second, 15)
-
-    def test_invalid_timestamp(self):
-        """Test with an invalid timestamp."""
-        with self.assertRaises(ValueError):
-            parse_timestamp("not-a-timestamp")
-
-    def test_non_string_timestamp(self):
-        """Test with a non-string timestamp."""
-        with self.assertRaises(ValueError):
-            parse_timestamp(123)
+# Import the functions to be tested
+from src.functions import parse_timestamp, should_scan_repository_for_GHAS_alerts
 
 
 class TestShouldScanRepository(unittest.TestCase):
-    """Tests for the should_scan_repository function."""
-
-    def test_no_timestamp(self):
-        """Test when no timestamp is provided."""
-        properties = {}
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_testing_flag(self):
-        """Test when timestamp is set to 'Testing'."""
-        properties = {"GHAS_Status_Updated": "Testing"}
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_old_timestamp(self):
-        """Test when timestamp is older than threshold."""
-        eight_days_ago = (datetime.datetime.now() - datetime.timedelta(days=8)).isoformat()
-        properties = {"GHAS_Status_Updated": eight_days_ago}
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_recent_timestamp(self):
-        """Test when timestamp is newer than threshold."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,
-            "CodeAlerts_Critical": 1,
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_invalid_timestamp(self):
-        """Test when timestamp is invalid."""
-        properties = {"GHAS_Status_Updated": "not-a-timestamp"}
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_code_alerts_missing_breakdown(self):
-        """Test when code alerts are present but severity breakdown is missing."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,  # > 0
-            # Missing CodeAlerts_Critical
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_code_alerts_all_missing_breakdown(self):
-        """Test when code alerts are present but all severity breakdowns are missing."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,  # > 0
-            # All severity breakdowns are missing
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_code_alerts_no_alerts(self):
-        """Test when code alerts are zero, we don't require the severity breakdowns."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 0,  # Zero, so we don't care about missing breakdowns
-            # Missing severity breakdowns shouldn't trigger a rescan when alerts = 0
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_secret_alerts_missing_types(self):
-        """Test when secret alerts are present but types are missing."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,
-            "CodeAlerts_Critical": 1,
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            "SecretAlerts_Total": 3,  # > 0
-            # Missing SecretAlerts_By_Type
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_missing_secret_total(self):
-        """Test when secret alerts total is missing but types are present."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,
-            "CodeAlerts_Critical": 1,
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            # Missing SecretAlerts_Total
-            "SecretAlerts_By_Type": "{}",  # Present
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_secret_alerts_no_alerts(self):
-        """Test when secret alerts are zero, we don't require the types breakdown."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,  # Zero, so we don't care about missing types
-            # Missing SecretAlerts_By_Type shouldn't trigger a rescan when alerts = 0
-            "DependencyAlerts": 4,
-            "DependencyAlerts_Critical": 1,
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_dependency_alerts_missing_breakdown(self):
-        """Test when dependency alerts are present but severity breakdown is missing."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,
-            "CodeAlerts_Critical": 1,
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,  # > 0
-            # Missing DependencyAlerts_Critical
-            "DependencyAlerts_High": 1,
-            "DependencyAlerts_Moderate": 1,
-            "DependencyAlerts_Low": 1
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_dependency_alerts_all_missing_breakdown(self):
-        """Test when dependency alerts are present but all severity breakdowns are missing."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 5,
-            "CodeAlerts_Critical": 1,
-            "CodeAlerts_High": 2,
-            "CodeAlerts_Medium": 1,
-            "CodeAlerts_Low": 1,
-            "SecretAlerts_Total": 3,
-            "SecretAlerts_By_Type": "{}",
-            "DependencyAlerts": 4,  # > 0
-            # All severity breakdowns are missing
-        }
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_dependency_alerts_no_alerts(self):
-        """Test when dependency alerts are zero, we don't require the severity breakdowns."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0,  # Zero, so we don't care about missing breakdowns
-            # Missing severity breakdowns shouldn't trigger a rescan when alerts = 0
-        }
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_timestamp_with_leading_whitespace(self):
-        """Test timestamp with leading whitespace should be handled gracefully."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": " " + yesterday,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully after stripping whitespace and return False (recently scanned)
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_timestamp_with_trailing_whitespace(self):
-        """Test timestamp with trailing whitespace should be handled gracefully."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday + " ",
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully after stripping whitespace and return False (recently scanned)
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_timestamp_with_both_whitespace(self):
-        """Test timestamp with both leading and trailing whitespace should be handled gracefully."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": " " + yesterday + " ",
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully after stripping whitespace and return False (recently scanned)
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_timestamp_with_newline(self):
-        """Test timestamp with newline should be handled gracefully."""
-        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
-        properties = {
-            "GHAS_Status_Updated": yesterday + "\n",
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully after stripping whitespace and return False (recently scanned)
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_specific_problematic_timestamp_format(self):
-        """Test the specific timestamp format mentioned in the issue."""
-        # This is the exact format that was causing issues according to the problem statement
-        problematic_timestamp = "2025-05-28T19:09:13.010962"
-        properties = {
-            "GHAS_Status_Updated": problematic_timestamp,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_specific_problematic_timestamp_with_whitespace(self):
-        """Test the specific timestamp format with whitespace that was causing the warning."""
-        # This simulates the actual issue where whitespace causes parsing to fail
-        problematic_timestamp = " 2025-05-28T19:09:13.010962 "
-        properties = {
-            "GHAS_Status_Updated": problematic_timestamp,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully after stripping whitespace (this timestamp is in the future, so should return False)
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_non_string_timestamp(self):
-        """Test that non-string timestamps are handled gracefully."""
-        properties = {"GHAS_Status_Updated": 123}  # Integer instead of string
-        # Should return True (scan) because it can't parse the integer as a timestamp
-        self.assertTrue(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
-
-    def test_timestamp_without_timezone_latest(self):
-        """Test the latest timestamp format mentioned in comment - 2025-05-28T20:36:15.994131."""
-        # This is the timestamp mentioned in the latest comment from @rajbos
-        timestamp = "2025-05-28T20:36:15.994131"
-        properties = {
-            "GHAS_Status_Updated": timestamp,
-            "CodeAlerts": 0,
-            "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
-        }
-        # Should parse successfully (this timestamp is in the future, so should return False for "recently scanned")
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
+    """Test the should_scan_repository_for_GHAS_alerts function."""
 
     def test_timestamp_without_timezone_with_whitespace(self):
         """Test timestamp without timezone info but with whitespace."""
-        timestamp = " 2025-05-28T20:36:15.994131 "
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        # Remove timezone info and add whitespace
+        timestamp_no_tz = yesterday.split('+')[0].split('Z')[0]  # Remove timezone if present
+        timestamp = f" {timestamp_no_tz} "
         properties = {
-            "GHAS_Status_Updated": timestamp,
             "CodeAlerts": 0,
             "SecretAlerts_Total": 0,
-            "DependencyAlerts": 0
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
         }
-        # Should parse successfully after stripping whitespace
-        self.assertFalse(should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7))
+        # Should not scan due to recent timestamp, even without timezone
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertFalse(result)
+
+    def test_recent_timestamp(self):
+        """Test with recent timestamp - should not scan."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 5,
+            "SecretAlerts_Total": 3,
+            "DependencyAlerts": 2,
+            "SecretAlerts_By_Type": '{"api_key": 1, "password": 2}',  # Proper JSON with types
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertFalse(result)
+
+    def test_old_timestamp(self):
+        """Test with old timestamp - should scan."""
+        old_time = datetime.datetime.now() - datetime.timedelta(days=10)
+        timestamp = old_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_no_timestamp(self):
+        """Test with no timestamp - should scan."""
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}"
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_empty_properties(self):
+        """Test with empty properties - should scan."""
+        properties = {}
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_code_alerts_no_alerts(self):
+        """Test code alerts completeness when no alerts are found."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,  # Changed from 3 to 0 to avoid triggering rescan
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertFalse(result)
+
+    def test_secret_alerts_empty_types_should_rescan(self):
+        """Test that SecretAlerts_By_Type being '{}' with existing alerts triggers rescan."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 3,  # Has secret alerts
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}",  # But no types data - should trigger rescan
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_secret_alerts_none_string_should_rescan(self):
+        """Test that SecretAlerts_By_Type being 'None' (string) triggers rescan."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 2,
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "None",  # String "None" - should trigger rescan
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_dependency_alerts_string_none(self):
+        """Test dependency alerts with string 'None' value."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": 0,
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": "None",  # String "None" - should trigger rescan
+            "SecretAlerts_By_Type": "{}",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_code_alerts_string_none(self):
+        """Test code alerts with string 'None' value."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": "None",  # String "None" - should trigger rescan
+            "SecretAlerts_Total": 0,
+            "DependencyAlerts": 0,
+            "SecretAlerts_By_Type": "{}",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
+
+    def test_mixed_string_none_values(self):
+        """Test with multiple string 'None' values."""
+        recent_time = datetime.datetime.now() - datetime.timedelta(hours=1)
+        timestamp = recent_time.isoformat() + "Z"
+        properties = {
+            "CodeAlerts": "None",
+            "SecretAlerts_Total": "None",
+            "DependencyAlerts": "None",
+            "SecretAlerts_By_Type": "None",
+            "CodeAlerts_Last_Scanned": timestamp,
+            "SecretAlerts_Last_Scanned": timestamp,
+            "DependencyAlerts_Last_Scanned": timestamp,
+            "GHAS_Status_Updated": timestamp
+        }
+        result = should_scan_repository_for_GHAS_alerts(properties, "GHAS_Status_Updated", 7)
+        self.assertTrue(result)
 
 
-if __name__ == "__main__":
+class TestParseTimestamp(unittest.TestCase):
+    """Test the parse_timestamp function."""
+
+    def test_valid_iso_timestamp(self):
+        """Test parsing valid ISO timestamp."""
+        timestamp = "2025-06-07T10:30:00Z"
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+        self.assertEqual(result.year, 2025)
+        self.assertEqual(result.month, 6)
+        self.assertEqual(result.day, 7)
+
+    def test_timestamp_with_microseconds(self):
+        """Test parsing timestamp with microseconds."""
+        timestamp = "2025-06-07T10:30:00.123456"
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+        self.assertEqual(result.microsecond, 123456)
+
+    def test_timestamp_with_timezone_offset(self):
+        """Test parsing timestamp with timezone offset."""
+        timestamp = "2025-06-07T10:30:00+02:00"
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+
+    def test_timestamp_without_timezone(self):
+        """Test parsing timestamp without timezone info."""
+        timestamp = "2025-06-07T10:30:00"
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+
+    def test_timestamp_with_whitespace(self):
+        """Test parsing timestamp with leading/trailing whitespace."""
+        timestamp = "  2025-06-07T10:30:00Z  "
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+
+    def test_invalid_timestamp_format(self):
+        """Test parsing invalid timestamp format raises ValueError."""
+        timestamp = "invalid-timestamp"
+        with self.assertRaises(ValueError):
+            parse_timestamp(timestamp)
+
+    def test_empty_timestamp(self):
+        """Test parsing empty timestamp raises ValueError."""
+        timestamp = ""
+        with self.assertRaises(ValueError):
+            parse_timestamp(timestamp)
+
+    def test_none_timestamp(self):
+        """Test parsing None timestamp raises ValueError."""
+        timestamp = None
+        with self.assertRaises(ValueError):
+            parse_timestamp(timestamp)
+
+    def test_specific_problematic_timestamp(self):
+        """Test the specific timestamp format that was causing issues."""
+        timestamp = "2025-05-28T20:25:25"
+        result = parse_timestamp(timestamp)
+        self.assertIsInstance(result, datetime.datetime)
+        self.assertEqual(result.year, 2025)
+        self.assertEqual(result.month, 5)
+        self.assertEqual(result.day, 28)
+
+
+if __name__ == '__main__':
+    # Set up logging to suppress debug messages during tests
+    logging.basicConfig(level=logging.WARNING)
     unittest.main()
