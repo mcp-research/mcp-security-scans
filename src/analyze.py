@@ -371,7 +371,7 @@ def preprocess_json_string(json_str: str) -> str:
 
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
     fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
-    
+
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
     fixed_str = re.sub(r'": ,', '":"",', fixed_str)

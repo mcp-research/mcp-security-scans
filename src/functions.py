@@ -38,14 +38,25 @@ def parse_timestamp(timestamp_value: Any) -> datetime.datetime:
         try:
             return datetime.datetime.fromisoformat(timestamp_str)
         except ValueError:
-            # If that fails, try adding UTC timezone indicator and parse again
-            # This handles timestamps without timezone info like "2025-05-28T20:36:15.994131"
-            if timestamp_str.endswith('Z') or '+' in timestamp_str or timestamp_str.count(':') >= 3:
-                # Already has timezone info, re-raise the original error
-                raise
+            # If that fails, try handling Z suffix (UTC indicator)
+            if timestamp_str.endswith('Z'):
+                # Replace 'Z' with '+00:00' for UTC timezone
+                try:
+                    return datetime.datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                except ValueError:
+                    # If that still fails, re-raise the original error
+                    raise
+            # If no 'Z' suffix and no timezone info, try adding UTC indicator
+            elif '+' not in timestamp_str and timestamp_str.count(':') < 3:
+                # Try adding 'Z' to indicate UTC, then convert to +00:00
+                try:
+                    return datetime.datetime.fromisoformat(timestamp_str + '+00:00')
+                except ValueError:
+                    # If that fails, re-raise the original error
+                    raise
             else:
-                # Try adding 'Z' to indicate UTC
-                return datetime.datetime.fromisoformat(timestamp_str + 'Z')
+                # Already has timezone info or other format, re-raise the original error
+                raise
     else:
         # Non-string values cannot be parsed by fromisoformat
         raise ValueError(f"Expected string timestamp, got {type(timestamp_value).__name__}")
@@ -91,6 +102,70 @@ def should_scan_repository_for_MCP_Composition(properties: Dict[str, Any], times
         return True
 
 
+def _parse_alert_count(value: Any, alert_type: str) -> int:
+    """Helper function to parse alert count values, handling 'None' strings."""
+    if value == "None" or value is None:
+        return 0
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        logging.info(f"Repository has invalid {alert_type} values. Scanning GHAS alerts...")
+        return -1  # Special value to indicate parsing error
+
+
+def _check_code_alerts_completeness(properties: Dict[str, Any]) -> bool:
+    """Check if code alerts data is complete."""
+    code_alerts = _parse_alert_count(properties.get("CodeAlerts", 0), "code alerts")
+    if code_alerts == -1:
+        return False  # Parsing error, need to scan
+
+    if code_alerts > 0:
+        # Check if any of the severity breakdowns are missing
+        required_properties = ["CodeAlerts_Critical", "CodeAlerts_High", "CodeAlerts_Medium", "CodeAlerts_Low"]
+        missing_properties = [prop for prop in required_properties if prop not in properties]
+        if missing_properties:
+            logging.info("Repository has code alerts but missing severity breakdowns. Scanning GHAS alerts...")
+            return False
+    return True
+
+
+def _check_secret_alerts_completeness(properties: Dict[str, Any]) -> bool:
+    """Check if secret alerts data is complete."""
+    if "SecretAlerts_Total" not in properties:
+        logging.info("Repository is missing secret alerts total. Scanning GHAS alerts...")
+        return False
+
+    secret_alerts_total = _parse_alert_count(properties.get("SecretAlerts_Total", 0), "secret alerts")
+    if secret_alerts_total == -1:
+        return False  # Parsing error, need to scan
+
+    if secret_alerts_total > 0:
+        secret_alerts_by_type = properties.get("SecretAlerts_By_Type")
+        # Handle case where SecretAlerts_By_Type is stored as string "None" or missing/empty
+        if (secret_alerts_by_type is None or secret_alerts_by_type == "None"
+                or secret_alerts_by_type == "{}" or secret_alerts_by_type == ""):
+            logging.info("Repository has secret alerts but missing type breakdown. Scanning GHAS alerts...")
+            return False
+    return True
+
+
+def _check_dependency_alerts_completeness(properties: Dict[str, Any]) -> bool:
+    """Check if dependency alerts data is complete."""
+    dependency_alerts = _parse_alert_count(properties.get("DependencyAlerts", 0), "dependency alerts")
+    if dependency_alerts == -1:
+        return False  # Parsing error, need to scan
+
+    if dependency_alerts > 0:
+        # Check if any of the severity breakdowns are missing
+        required_properties = ["DependencyAlerts_Critical", "DependencyAlerts_High",
+                               "DependencyAlerts_Moderate", "DependencyAlerts_Low"]
+        missing_properties = [prop for prop in required_properties if prop not in properties]
+        if missing_properties:
+            logging.info("Repository has dependency alerts but missing severity breakdowns. Scanning GHAS alerts...")
+            return False
+    return True
+
+
 def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp_property: str, days_threshold: int) -> bool:
     """
     Determines if a repository should be scanned based on its last scan timestamp
@@ -123,50 +198,13 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
             return True
         else:
             # Additional conditions to check if we need to rescan despite recent timestamp
-
-            # Check code scanning alerts
-            code_alerts = int(properties.get("CodeAlerts", 0))
-            if code_alerts > 0:
-                # Check if any of the severity breakdowns are missing
-                has_critical = "CodeAlerts_Critical" in properties
-                has_high = "CodeAlerts_High" in properties
-                has_medium = "CodeAlerts_Medium" in properties
-                has_low = "CodeAlerts_Low" in properties
-
-                if not (has_critical and has_high and has_medium and has_low):
-                    logging.info("Repository has code alerts but missing severity breakdowns. Scanning GHAS alerts...")
-                    return True
-
-            # Check secret scanning alerts
-            # Both conditions: SecretAlerts_Total not set OR (SecretAlerts_Total > 0 and SecretAlerts_By_Type not set)
-            try:
-                secret_alerts_total = int(properties.get("SecretAlerts_Total", 0))
-                secret_alerts_by_type = properties.get("SecretAlerts_By_Type")
-            except (ValueError, TypeError):
-                # If we can't parse the values, we should scan
-                logging.info("Repository has invalid secret alerts values. Scanning GHAS alerts...")
+            # Check all alert types for completeness
+            if not _check_code_alerts_completeness(properties):
                 return True
-
-            if "SecretAlerts_Total" not in properties:
-                logging.info("Repository is missing secret alerts total. Scanning GHAS alerts...")
+            if not _check_secret_alerts_completeness(properties):
                 return True
-
-            if secret_alerts_total > 0 and (secret_alerts_by_type is None or secret_alerts_by_type == "{}" or secret_alerts_by_type == ""):
-                logging.info("Repository has secret alerts but missing type breakdown. Scanning GHAS alerts...")
+            if not _check_dependency_alerts_completeness(properties):
                 return True
-
-            # Check dependency alerts
-            dependency_alerts = int(properties.get("DependencyAlerts", 0))
-            if dependency_alerts > 0:
-                # Check if any of the severity breakdowns are missing
-                has_critical = "DependencyAlerts_Critical" in properties
-                has_high = "DependencyAlerts_High" in properties
-                has_moderate = "DependencyAlerts_Moderate" in properties
-                has_low = "DependencyAlerts_Low" in properties
-
-                if not (has_critical and has_high and has_moderate and has_low):
-                    logging.info("Repository has dependency alerts but missing severity breakdowns. Scanning GHAS alerts...")
-                    return True
 
             logging.info(f"Repository was scanned within the last [{days_threshold}] days and has complete data. Skipping GHAS scan...")
             return False
@@ -175,7 +213,7 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
         return True
 
 
-def get_repository_properties(existing_repos_properties: Dict[str, Any], repo, gh: Any) -> Dict[str, Any]:
+def get_repository_properties(existing_repos_properties: list, repo, gh: Any) -> Dict[str, Any]:
 
     owner = repo.owner.login if repo.owner else Constants.Org.TARGET_ORG
     repo_name = repo.name
@@ -186,7 +224,7 @@ def get_repository_properties(existing_repos_properties: Dict[str, Any], repo, g
         # Search in the existing properties list
         for repo_properties in existing_repos_properties:
             # todo: there has to be a quicker way to do this then a for loop?
-            if (repo_properties.repository_full_name == f"{owner}/{repo_name}"):
+            if (repo_properties.repository_name == repo_name):
                 # Extract properties from the custom properties object
                 for prop in repo_properties.properties:
                     properties[prop.property_name] = prop.value
@@ -207,6 +245,7 @@ def get_repository_properties(existing_repos_properties: Dict[str, Any], repo, g
 
     except Exception as prop_error:
         logging.warning(f"Error retrieving properties for {owner}/{repo_name}: {prop_error}")
+        return {}
 
 
 def is_running_interactively() -> bool:
