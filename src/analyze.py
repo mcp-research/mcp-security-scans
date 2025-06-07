@@ -302,8 +302,8 @@ def scan_repository_for_alerts(gh: Any, repo: FullRepository, properties: List[D
 
             # Secret scanning alerts (only total for now)
             Constants.AlertProperties.SECRET_ALERTS_TOTAL: secret_alerts["total"],
-            # Store secret types as a JSON string
-            Constants.AlertProperties.SECRET_ALERTS_BY_TYPE: json.dumps(secret_alerts["types"]) if secret_alerts["types"] else "{}",
+            # Store secret types as a simple key:value,key:value format to avoid JSON quote issues with GitHub API
+            Constants.AlertProperties.SECRET_ALERTS_BY_TYPE: _format_secret_types_for_storage(secret_alerts["types"]),
 
             # Dependency scanning alerts by severity
             Constants.AlertProperties.DEPENDENCY_ALERTS_CRITICAL: dependency_alerts["critical"],
@@ -619,6 +619,70 @@ def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
             "json_config": json.dumps(composition, indent=2) if composition else "None"
         }
         return {}, error_details
+
+
+def _format_secret_types_for_storage(secret_types_dict):
+    """
+    Format secret types dictionary for safe storage in GitHub custom properties.
+    Converts {"type1": 5, "type2": 3} to "type1:5,type2:3" to avoid JSON quote issues.
+
+    Args:
+        secret_types_dict (dict): Dictionary of secret types and their counts
+
+    Returns:
+        str: Formatted string safe for GitHub API
+    """
+    if not secret_types_dict:
+        return ""
+
+    formatted_pairs = []
+    for secret_type, count in secret_types_dict.items():
+        # Escape any colons or commas in the type name to avoid parsing issues
+        safe_type = str(secret_type).replace(":", "_COLON_").replace(",", "_COMMA_")
+        formatted_pairs.append(f"{safe_type}:{count}")
+
+    return ",".join(formatted_pairs)
+
+
+def _parse_secret_types_from_storage(stored_value):
+    """
+    Parse secret types from stored format back to dictionary.
+    Converts "type1:5,type2:3" back to {"type1": 5, "type2": 3}.
+    Also handles legacy JSON format for backward compatibility.
+
+    Args:
+        stored_value (str): Stored secret types string
+
+    Returns:
+        dict: Dictionary of secret types and their counts
+    """
+    if not stored_value or stored_value == "":
+        return {}
+
+    # Handle legacy JSON format for backward compatibility
+    if stored_value.startswith("{") and stored_value.endswith("}"):
+        try:
+            import json
+            return json.loads(stored_value)
+        except json.JSONDecodeError:
+            logging.warning(f"Failed to parse legacy JSON secret types: [{stored_value}]")
+            return {}
+
+    # Parse new format: "type1:5,type2:3"
+    result = {}
+    try:
+        pairs = stored_value.split(",")
+        for pair in pairs:
+            if ":" in pair:
+                type_name, count_str = pair.split(":", 1)
+                # Unescape any escaped characters
+                type_name = type_name.replace("_COLON_", ":").replace("_COMMA_", ",")
+                result[type_name] = int(count_str)
+    except (ValueError, AttributeError) as e:
+        logging.warning(f"Failed to parse secret types from storage format: [{stored_value}], error: [{e}]")
+        return {}
+
+    return result
 
 
 def main():

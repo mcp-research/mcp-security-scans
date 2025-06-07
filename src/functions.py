@@ -102,7 +102,7 @@ def should_scan_repository_for_MCP_Composition(properties: Dict[str, Any], times
         return True
 
 
-def _parse_alert_count(value: Any, alert_type: str) -> int:
+def parse_alert_count(value: Any, alert_type: str) -> int:
     """Helper function to parse alert count values, handling 'None' strings."""
     if value == "None" or value is None:
         return 0
@@ -113,9 +113,9 @@ def _parse_alert_count(value: Any, alert_type: str) -> int:
         return -1  # Special value to indicate parsing error
 
 
-def _check_code_alerts_completeness(properties: Dict[str, Any]) -> bool:
+def check_code_alerts_completeness(properties: Dict[str, Any]) -> bool:
     """Check if code alerts data is complete."""
-    code_alerts = _parse_alert_count(properties.get("CodeAlerts", 0), "code alerts")
+    code_alerts = parse_alert_count(properties.get("CodeAlerts", 0), "code alerts")
     if code_alerts == -1:
         return False  # Parsing error, need to scan
 
@@ -129,13 +129,13 @@ def _check_code_alerts_completeness(properties: Dict[str, Any]) -> bool:
     return True
 
 
-def _check_secret_alerts_completeness(properties: Dict[str, Any]) -> bool:
+def check_secret_alerts_completeness(properties: Dict[str, Any]) -> bool:
     """Check if secret alerts data is complete."""
     if "SecretAlerts_Total" not in properties:
         logging.info("Repository is missing secret alerts total. Scanning GHAS alerts...")
         return False
 
-    secret_alerts_total = _parse_alert_count(properties.get("SecretAlerts_Total", 0), "secret alerts")
+    secret_alerts_total = parse_alert_count(properties.get("SecretAlerts_Total", 0), "secret alerts")
     if secret_alerts_total == -1:
         return False  # Parsing error, need to scan
 
@@ -151,7 +151,7 @@ def _check_secret_alerts_completeness(properties: Dict[str, Any]) -> bool:
 
 def _check_dependency_alerts_completeness(properties: Dict[str, Any]) -> bool:
     """Check if dependency alerts data is complete."""
-    dependency_alerts = _parse_alert_count(properties.get("DependencyAlerts", 0), "dependency alerts")
+    dependency_alerts = parse_alert_count(properties.get("DependencyAlerts", 0), "dependency alerts")
     if dependency_alerts == -1:
         return False  # Parsing error, need to scan
 
@@ -186,7 +186,7 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
         logging.info("Repository has never been scanned. Scanning GHAS alerts...")
         return True
 
-    if last_scanned == "Testing":
+    if last_scanned == "None":
         logging.info("Repository is marked for testing. Scanning GHAS alerts...")
         return True
 
@@ -199,9 +199,9 @@ def should_scan_repository_for_GHAS_alerts(properties: Dict[str, Any], timestamp
         else:
             # Additional conditions to check if we need to rescan despite recent timestamp
             # Check all alert types for completeness
-            if not _check_code_alerts_completeness(properties):
+            if not check_code_alerts_completeness(properties):
                 return True
-            if not _check_secret_alerts_completeness(properties):
+            if not check_secret_alerts_completeness(properties):
                 return True
             if not _check_dependency_alerts_completeness(properties):
                 return True
