@@ -358,7 +358,6 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
                 percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
                 f.write(f"| {runtime_type} | {count} | {percentage:.1f}% |\n")
             f.write(f"| **Total Scanned** | **{total_runtime_repos}** | **100.0%** |\n\n")
-            f.write(f"| **Total** | **{total_runtime_repos}** | **100.0%** |\n\n")
 
             # Create mermaid pie chart
             f.write("```mermaid\n")
