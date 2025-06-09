@@ -16,6 +16,7 @@ from .github import (
     show_rate_limit
 )
 from .constants import Constants
+from .analyze import _parse_secret_types_from_storage
 
 # Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -171,15 +172,13 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
             dep_low = safe_int_convert(properties.get(Constants.AlertProperties.DEPENDENCY_ALERTS_LOW, 0))
 
             # Get secret alert types
-            secret_types_json = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "{}")
-            if secret_types_json and secret_types_json != "{}":
-                try:
-                    secret_types = json.loads(secret_types_json)
-                    # Add to type totals
-                    for secret_type, count in secret_types.items():
-                        secret_alerts_by_type[secret_type] += safe_int_convert(count)
-                except json.JSONDecodeError:
-                    logging.warning(f"Could not parse secret types JSON for {repo_name}: {secret_types_json}")
+            secret_types_stored = properties.get(Constants.AlertProperties.SECRET_ALERTS_BY_TYPE, "")
+            if secret_types_stored and secret_types_stored != "{}":
+                # Use the new parsing function that handles both new format and legacy JSON
+                secret_types = _parse_secret_types_from_storage(secret_types_stored)
+                # Add to type totals
+                for secret_type, count in secret_types.items():
+                    secret_alerts_by_type[secret_type] += safe_int_convert(count)
 
             # Get MCP server runtime type
             runtime_type = properties.get(Constants.AlertProperties.MCP_SERVER_RUNTIME, "unknown")
@@ -344,9 +343,10 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
 
         # Add section for MCP server runtime types
         f.write("## MCP Server Runtime Distribution\n\n")
+
         runtime_types = stats.get('runtime_types', {})
         if len(runtime_types) > 0:
-            total_runtime_repos = sum(runtime_types.values())
+            total_runtime_repos = sum(stats['runtime_types'].values())
             scanned_repositories = stats.get('scanned_repositories', total_runtime_repos)
 
             f.write(f"*Runtime information is available for {total_runtime_repos} of {scanned_repositories} scanned repositories.*\n\n")
@@ -358,6 +358,7 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
                 percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
                 f.write(f"| {runtime_type} | {count} | {percentage:.1f}% |\n")
             f.write(f"| **Total Scanned** | **{total_runtime_repos}** | **100.0%** |\n\n")
+            f.write(f"| **Total** | **{total_runtime_repos}** | **100.0%** |\n\n")
 
             # Create mermaid pie chart
             f.write("```mermaid\n")

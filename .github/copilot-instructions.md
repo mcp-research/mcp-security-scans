@@ -69,4 +69,5 @@ The project uses the following environment variables:
 These can be set in your shell or through a `.env` file.
 
 ## Coding guidelines
-Follow the flake8 coding guidelines for this project, see the [flake8 configuration](../.flake8) for the configured rules.
+Follow the flake8 coding guidelines for this project when generating new code, see the [flake8 configuration](../.flake8) for the configured rules.
+Do not make changes to code only for coding guidelines. Only apply the guidelines to new code.

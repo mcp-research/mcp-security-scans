@@ -16,6 +16,7 @@ import magic
 
 from .functions import is_running_interactively
 
+
 def get_github_client(app_id: str, private_key: str) -> GitHub:
     """Authenticates using GitHub App credentials."""
     try:
@@ -29,6 +30,7 @@ def get_github_client(app_id: str, private_key: str) -> GitHub:
     except Exception as e:
         logging.error(f"Failed to authenticate GitHub App: [{e}]")
         raise
+
 
 def get_installation_github_client(
     gh_app: GitHub, target_org: str
@@ -72,6 +74,7 @@ def get_installation_github_client(
         logging.error(f"Failed to get installation client for [{target_org}]: [{e}]")
         raise
 
+
 def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[str, Any]]:
     """Lists all custom repository properties for a given organization.
 
@@ -106,6 +109,7 @@ def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[st
         logging.error(f"An unexpected error occurred while listing custom repository properties for org [{org}]: [{e}]")
         raise  # re-raise the exception
 
+
 def enable_ghas_features(gh: GitHub, owner: str, repo: str):
     """Enables GHAS features (vuln alerts, code scanning default setup, secret scanning) for a repo."""
     logging.info(f"Enabling GHAS features for [{owner}/{repo}]...")
@@ -115,17 +119,18 @@ def enable_ghas_features(gh: GitHub, owner: str, repo: str):
         logging.info(f"Enabled vulnerability alerts for [{owner}/{repo}].")
 
         # Enable Secret Scanning & Push Protection
-        patch_data_secret = {
-            "security_and_analysis": {
+        gh.rest.repos.update(
+            owner=owner,
+            repo=repo,
+            security_and_analysis={
                 "secret_scanning": {"status": "enabled"}
             }
-        }
-        gh.rest.repos.update(owner=owner, repo=repo, data=patch_data_secret)
+        )
         logging.info(f"Enabled secret scanning and push protection for [{owner}/{repo}].")
 
         # Enable Code Scanning Default Setup
         try:
-            gh.rest.code_scanning.update_default_setup(owner=owner, repo=repo, data={"state":"configured"})
+            gh.rest.code_scanning.update_default_setup(owner=owner, repo=repo, data={"state": "configured"})
             logging.info(f"Enabled code scanning default setup for [{owner}/{repo}].")
         except RequestFailed as e_cs:
             # Default setup might fail if the language isn't supported or already configured

@@ -38,6 +38,7 @@ class TestSecretTypesReport(unittest.TestCase):
             'code_alerts_by_severity': {'critical': 2, 'high': 3, 'medium': 3, 'low': 2},
             'dependency_alerts_by_severity': {'critical': 3, 'high': 4, 'moderate': 5, 'low': 3},
             'secret_alerts_by_type': {'GitHub PAT': 3, 'AWS Key': 2},
+            'runtime_types': {'python': 5, 'node': 3, 'unknown': 2},
             'alerts_by_date': {},
             'repos_alerts': {},
             'report_date': '2023-01-01T00:00:00'
@@ -70,6 +71,7 @@ class TestSecretTypesReport(unittest.TestCase):
             'code_alerts_by_severity': {'critical': 2, 'high': 3, 'medium': 3, 'low': 2},
             'dependency_alerts_by_severity': {'critical': 3, 'high': 4, 'moderate': 5, 'low': 3},
             'secret_alerts_by_type': {},  # But no categorized types (empty dict)
+            'runtime_types': {'python': 4, 'node': 6},
             'alerts_by_date': {},
             'repos_alerts': {},
             'report_date': '2023-01-01T00:00:00'
@@ -100,6 +102,7 @@ class TestSecretTypesReport(unittest.TestCase):
             'code_alerts_by_severity': {'critical': 2, 'high': 3, 'medium': 3, 'low': 2},
             'dependency_alerts_by_severity': {'critical': 3, 'high': 4, 'moderate': 5, 'low': 3},
             'secret_alerts_by_type': {},  # Empty dict is expected
+            'runtime_types': {'python': 8, 'node': 2},
             'alerts_by_date': {},
             'repos_alerts': {},
             'report_date': '2023-01-01T00:00:00'

@@ -138,6 +138,32 @@ class TestGetSecretScanningAlerts(unittest.TestCase):
         self.assertIn("Unexpected error getting secret scanning alerts", error_msg)
         self.assertIn("test-org/test-repo", error_msg)
     
+    def test_secret_scanning_alerts_with_missing_attributes(self):
+        """Test when alerts have completely missing secret type attributes."""
+        # Create mock alerts where attributes are missing entirely
+        mock_alerts = [
+            Mock(secret_type_display_name="GitHub Personal Access Token", secret_type="github_pat"),  # Normal alert
+            Mock(),  # Alert with missing attributes
+            Mock(),  # Another alert with missing attributes
+        ]
+        
+        # Remove attributes from the Mock objects to simulate missing fields
+        for alert in mock_alerts[1:]:  # Skip the first one
+            if hasattr(alert, 'secret_type_display_name'):
+                delattr(alert, 'secret_type_display_name')
+            if hasattr(alert, 'secret_type'):
+                delattr(alert, 'secret_type')
+        
+        self.mock_gh.rest.paginate.return_value = mock_alerts
+        
+        result = get_secret_scanning_alerts(self.mock_gh, self.owner, self.repo)
+        
+        # Verify results - should categorize missing attributes as "Unknown"
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(len(result["types"]), 2)  # "GitHub Personal Access Token" and "Unknown"
+        self.assertEqual(result["types"]["GitHub Personal Access Token"], 1)
+        self.assertEqual(result["types"]["Unknown"], 2)
+
     def test_real_world_scenario_github_repo(self):
         """Test with data similar to a real GitHub repository with secrets."""
         # Mock alerts similar to what might be found in a real repo
