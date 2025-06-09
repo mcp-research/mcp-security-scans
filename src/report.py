@@ -182,7 +182,10 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
 
             # Get MCP server runtime type
             runtime_type = properties.get(Constants.AlertProperties.MCP_SERVER_RUNTIME, "unknown")
-            if runtime_type:
+            if runtime_type is not None:
+                # Handle empty strings as "unknown"
+                if runtime_type == "":
+                    runtime_type = "unknown"
                 runtime_types[runtime_type] += 1
 
             # Add to totals
@@ -285,7 +288,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
 
             with open(summary_file_path, "a") as summary_file:
                 summary_file.write(content + "\n\n")
-            logging.info(f"Successfully appended summary to GITHUB_STEP_SUMMARY file")
+            logging.info("Successfully appended summary to GITHUB_STEP_SUMMARY file")
         except Exception as e:
             logging.error(f"Failed to write to GITHUB_STEP_SUMMARY file: {e}")
     logging.info(f"Markdown report saved to {md_report_file}")
@@ -340,21 +343,26 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
 
         # Add section for MCP server runtime types
         f.write("## MCP Server Runtime Distribution\n\n")
-        if len(stats['runtime_types']) > 0:
+
+        runtime_types = stats.get('runtime_types', {})
+        if len(runtime_types) > 0:
             total_runtime_repos = sum(stats['runtime_types'].values())
+            scanned_repositories = stats.get('scanned_repositories', total_runtime_repos)
+
+            f.write(f"*Runtime information is available for {total_runtime_repos} of {scanned_repositories} scanned repositories.*\n\n")
 
             # Create table
             f.write("| Runtime Type | Count | Percentage |\n")
             f.write("|--------------|-------|------------|\n")
-            for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+            for runtime_type, count in sorted(runtime_types.items(), key=lambda x: x[1], reverse=True):
                 percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
                 f.write(f"| {runtime_type} | {count} | {percentage:.1f}% |\n")
-            f.write(f"| **Total** | **{total_runtime_repos}** | **100.0%** |\n\n")
+            f.write(f"| **Total Scanned** | **{total_runtime_repos}** | **100.0%** |\n\n")
 
             # Create mermaid pie chart
             f.write("```mermaid\n")
             f.write("pie title MCP Server Runtime Distribution\n")
-            for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+            for runtime_type, count in sorted(runtime_types.items(), key=lambda x: x[1], reverse=True):
                 percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
                 f.write(f'    "{runtime_type}" : {percentage:.1f}\n')
             f.write("```\n\n")
@@ -364,12 +372,12 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
         # Coverage statistics
         if stats['total_repositories'] > 0:
             scan_coverage = (stats['scanned_repositories'] / stats['total_repositories']) * 100
-            f.write(f"## Coverage\n\n")
+            f.write("## Coverage\n\n")
             f.write(f"- **Scan Coverage:** {scan_coverage:.1f}%\n")
 
         # Only show detailed repository section if not running in CI
         if not (os.getenv("CI")):
-            f.write(f"\n## Top Repositories with Alerts\n\n")
+            f.write("\n## Top Repositories with Alerts\n\n")
             f.write("| Repository | Total Alerts | Code Alerts | Secret Alerts | Dependency Alerts | Last Scanned |\n")
             f.write("|------------|-------------|------------|--------------|-------------------|-------------|\n")
 
@@ -382,10 +390,11 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
 
             # List top 10 repositories or all if less than 10
             for repo_name, repo_data in top_repos[:10]:
-                f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | {repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
+                f.write(f"| {repo_name} | {repo_data['total']} | {repo_data['code']} | "
+                        f"{repo_data['secret']} | {repo_data['dependency']} | {repo_data['scan_date']} |\n")
 
             # Add a section for repositories with most critical alerts
-            f.write(f"\n## Top Repositories with Critical Alerts\n\n")
+            f.write("\n## Top Repositories with Critical Alerts\n\n")
             f.write("| Repository | Critical Code | Critical Dependencies |\n")
             f.write("|------------|--------------|----------------------|\n")
 
@@ -444,12 +453,14 @@ def print_console_summary(stats: Dict) -> None:
 
     # Print runtime type breakdown
     print("\nMCP Server Runtime Distribution:")
-    if len(stats['runtime_types']) > 0:
-        total_runtime_repos = sum(stats['runtime_types'].values())
-        for runtime_type, count in sorted(stats['runtime_types'].items(), key=lambda x: x[1], reverse=True):
+    runtime_types = stats.get('runtime_types', {})
+    if len(runtime_types) > 0:
+        total_runtime_repos = sum(runtime_types.values())
+        scanned_repositories = stats.get('scanned_repositories', total_runtime_repos)
+        print(f"  Runtime information available for {total_runtime_repos} of {scanned_repositories} scanned repositories:")
+        for runtime_type, count in sorted(runtime_types.items(), key=lambda x: x[1], reverse=True):
             percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
             print(f"  - {runtime_type}: {count} ({percentage:.1f}%)")
-        print(f"  Total repositories with runtime info: {total_runtime_repos}")
     else:
         print("  No MCP server runtime information available.")
 
