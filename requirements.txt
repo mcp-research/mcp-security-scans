@@ -1,6 +1,6 @@
-GitHubKit[auth-app]==0.12.15
-python-dotenv==1.1.1
-GitPython==3.1.44
+GitHubKit[auth-app]==0.13.5
+python-dotenv==1.2.1
+GitPython==3.1.45
 python-magic==0.4.27
-requests==2.32.4
-beautifulsoup4==4.13.4
+requests==2.32.5
+beautifulsoup4==4.14.2
