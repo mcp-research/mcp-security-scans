@@ -119,6 +119,9 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
     # Dictionary to track MCP server runtime types
     runtime_types = defaultdict(int)
 
+    # List to track repositories with unknown runtime type
+    unknown_runtime_repos = []
+
     # Dictionary to track alerts by date
     alerts_by_date = defaultdict(lambda: {
         'code': 0,
@@ -187,6 +190,15 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 if runtime_type == "":
                     runtime_type = "unknown"
                 runtime_types[runtime_type] += 1
+
+                # Track repositories with unknown runtime type
+                if runtime_type == "unknown":
+                    unknown_runtime_repos.append({
+                        'name': full_name,
+                        'repo_name': repo_name,
+                        'github_url': f"https://github.com/{full_name}",
+                        'search_url': f"https://github.com/{full_name}/search?q=mcpServers"
+                    })
 
             # Add to totals
             total_code_alerts += code_alerts
@@ -258,6 +270,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'secret_alerts_by_type': dict(secret_alerts_by_type),
         # Add runtime type breakdown
         'runtime_types': dict(runtime_types),
+        'unknown_runtime_repos': unknown_runtime_repos,
         'alerts_by_date': dict(alerts_by_date),
         'repos_alerts': repos_alerts,
         'report_date': datetime.datetime.now().isoformat(),
@@ -366,6 +379,28 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
                 percentage = (count / total_runtime_repos) * 100 if total_runtime_repos > 0 else 0
                 f.write(f'    "{runtime_type}" : {percentage:.1f}\n')
             f.write("```\n\n")
+
+            # Add collapsible section for unknown runtime repos
+            unknown_repos = stats.get('unknown_runtime_repos', [])
+            unknown_count = len(unknown_repos)
+            if unknown_count > 0:
+                f.write("<details>\n")
+                f.write(f"<summary>Show unknown runtime repositories ({unknown_count} total)</summary>\n\n")
+                f.write("The following repositories could not be identified for their MCP server runtime type. ")
+                f.write("Click on the links to investigate their MCP composition files:\n\n")
+
+                # Show up to 10 repositories
+                repos_to_show = unknown_repos[:10]
+                for repo in repos_to_show:
+                    repo_name = repo['name']
+                    github_url = repo['github_url']
+                    search_url = repo['search_url']
+                    f.write(f"- [{repo_name}]({github_url}) - [Search for mcpServers]({search_url})\n")
+
+                if unknown_count > 10:
+                    f.write(f"\n*Showing 10 of {unknown_count} repositories with unknown runtime type.*\n")
+
+                f.write("\n</details>\n\n")
         else:
             f.write("No MCP server runtime information available.\n\n")
 
