@@ -16,7 +16,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 # Import the functions to be tested
-from src.analyze import scan_repo_for_mcp_composition, get_composition_info
+from src.analyze import scan_repo_for_mcp_composition, get_composition_info, detect_runtime_from_package_files
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -175,6 +175,105 @@ Notice the missing closing bracket.'''
             logging.info(f"Successfully fixed and parsed malformed JSON: [{composition}]")
         finally:
             # Clean up
+            shutil.rmtree(temp_dir)
+
+    def test_node_command_detected_in_composition(self):
+        """Test that 'node' command is recognized as a known server type in get_composition_info."""
+        example_dir = Path(project_root) / "tests" / "test_mcp_scan" / "examples" / "cosmix__linear-mcp"
+        self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
+
+        mcp_composition, error_details = scan_repo_for_mcp_composition(example_dir)
+        self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition returned None for the example directory.")
+        self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+
+        info, analysis_error = get_composition_info(mcp_composition)
+        self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+        self.assertIsNotNone(info, "get_composition_info returned None")
+        self.assertEqual(info.get("server_type"), "node", f"Expected server_type 'node', got [{info.get('server_type')}]")
+        self.assertEqual(info.get("command"), "node", f"Expected command 'node', got [{info.get('command')}]")
+        logging.info(f"Node command detection test passed: [{info}]")
+
+    def test_node_path_command_detected_in_composition(self):
+        """Test that a path ending in 'node' (e.g. 'path-to/bin/node') is recognized as node server type."""
+        composition = {
+            "mcpServers": {
+                "mcp-server-chatsum": {
+                    "command": "path-to/bin/node",
+                    "args": ["path-to/mcp-server-chatsum/build/index.js"]
+                }
+            }
+        }
+        info, analysis_error = get_composition_info(composition)
+        self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+        self.assertEqual(info.get("server_type"), "node",
+                         f"Expected server_type 'node' for path-ending-in-node command, got [{info.get('server_type')}]")
+        logging.info(f"Node path command detection test passed: [{info}]")
+
+        # Also test with absolute path (e.g. /usr/local/bin/node)
+        composition_abs = {
+            "mcpServers": {
+                "my-server": {
+                    "command": "/usr/local/bin/node",
+                    "args": ["/absolute/path/to/build/index.js"]
+                }
+            }
+        }
+        info_abs, analysis_error_abs = get_composition_info(composition_abs)
+        self.assertIsNone(analysis_error_abs)
+        self.assertEqual(info_abs.get("server_type"), "node",
+                         f"Expected server_type 'node' for absolute node path, got [{info_abs.get('server_type')}]")
+        logging.info(f"Absolute node path detection test passed: [{info_abs}]")
+
+    def test_detect_runtime_from_package_json(self):
+        """Test that detect_runtime_from_package_files detects 'node' from package.json with MCP SDK."""
+        example_dir = Path(project_root) / "tests" / "test_mcp_scan" / "examples" / "mstfe__mcp-google-tasks"
+        self.assertTrue(example_dir.exists(), f"Example directory [{example_dir}] does not exist.")
+
+        runtime = detect_runtime_from_package_files(example_dir)
+        self.assertIsNotNone(runtime, "detect_runtime_from_package_files returned None")
+        self.assertTrue(bool(runtime), "detect_runtime_from_package_files returned empty dict")
+        self.assertEqual(runtime.get("server_type"), "node",
+                         f"Expected server_type 'node', got [{runtime.get('server_type')}]")
+        logging.info(f"Package.json runtime detection test passed: [{runtime}]")
+
+    def test_detect_runtime_no_mcp_sdk(self):
+        """Test that detect_runtime_from_package_files returns empty dict when no MCP SDK is present."""
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            package_json = temp_dir / "package.json"
+            with open(package_json, 'w') as f:
+                json.dump({"name": "my-app", "dependencies": {"express": "^4.0.0"}}, f)
+
+            runtime = detect_runtime_from_package_files(temp_dir)
+            self.assertEqual(runtime, {}, f"Expected empty dict, got [{runtime}]")
+            logging.info("No MCP SDK detection test passed: returned empty dict as expected")
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_detect_runtime_from_pyproject_toml(self):
+        """Test that detect_runtime_from_package_files detects 'uv' from pyproject.toml with mcp package."""
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            pyproject = temp_dir / "pyproject.toml"
+            pyproject.write_text('[project]\nname = "my-mcp-server"\ndependencies = ["mcp>=1.0.0"]\n')
+
+            runtime = detect_runtime_from_package_files(temp_dir)
+            self.assertIsNotNone(runtime, "detect_runtime_from_package_files returned None")
+            self.assertTrue(bool(runtime), "detect_runtime_from_package_files returned empty dict")
+            self.assertEqual(runtime.get("server_type"), "uv",
+                             f"Expected server_type 'uv', got [{runtime.get('server_type')}]")
+            logging.info(f"pyproject.toml runtime detection test passed: [{runtime}]")
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_detect_runtime_empty_directory(self):
+        """Test that detect_runtime_from_package_files returns empty dict for empty directory."""
+        temp_dir = Path(tempfile.mkdtemp())
+        try:
+            runtime = detect_runtime_from_package_files(temp_dir)
+            self.assertEqual(runtime, {}, f"Expected empty dict for empty directory, got [{runtime}]")
+            logging.info("Empty directory detection test passed: returned empty dict as expected")
+        finally:
             shutil.rmtree(temp_dir)
 
 
