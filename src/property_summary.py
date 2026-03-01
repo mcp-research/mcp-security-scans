@@ -188,7 +188,7 @@ def generate_property_summary_report(analysis_results: Dict[str, Any], target_or
         f.write(f"Repositories without properties: [{overall['repositories_without_properties']}]\n")
         f.write(f"Total properties found: [{overall['total_properties_found']}]\n")
         f.write(f"Unique property names: [{overall['property_count']}]\n")
-        f.write(f"Property coverage: [{(overall['repositories_with_properties']/overall['total_repositories_analyzed']*100):.1f}%]\n")
+        f.write(f"Property coverage: [{(overall['repositories_with_properties'] / overall['total_repositories_analyzed'] * 100):.1f}%]\n")
         f.write("\n")
 
         # Write property names list
