@@ -249,5 +249,65 @@ class TestInvalidMcpJson(unittest.TestCase):
             if hash_comments_temp_dir.exists():
                 shutil.rmtree(hash_comments_temp_dir)
 
+    def test_json_with_python_style_literals(self):
+        """Test scanning a JSON with Python-style boolean and None literals (e.g. Redis MCP README)."""
+        py_literals_temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            json_with_python_literals = """{
+  "mcpServers": {
+    "redis": {
+      "command": "uvx",
+      "args": ["mcp-redis"],
+      "env": {
+        "REDIS_HOST": "127.0.0.1",
+        "REDIS_PORT": "6379",
+        "REDIS_USERNAME": "default",
+        "REDIS_PWD": "",
+        "REDIS_SSL": False,
+        "REDIS_CA_PATH": None,
+        "REDIS_SSL_KEYFILE": None,
+        "REDIS_SSL_CERTFILE": None,
+        "REDIS_CERT_REQS": "required",
+        "REDIS_CA_CERTS": None,
+        "REDIS_CLUSTER_MODE": False
+      }
+    }
+  }
+}"""
+
+            py_literals_file = py_literals_temp_dir / "python_literals_test.md"
+            with open(py_literals_file, "w") as f:
+                f.write("# Redis MCP Server\n\n")
+                f.write("```json\n")
+                f.write(json_with_python_literals)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(py_literals_temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON with Python-style literals")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("redis", mcp_composition["mcpServers"], "'redis' key missing in parsed composition")
+
+            redis_server = mcp_composition["mcpServers"]["redis"]
+            self.assertEqual(redis_server["command"], "uvx",
+                             f"Expected 'uvx' command but got {redis_server['command']}")
+            self.assertIn("env", redis_server, "'env' key missing in parsed composition")
+            self.assertEqual(redis_server["env"]["REDIS_HOST"], "127.0.0.1",
+                             f"Expected '127.0.0.1' but got {redis_server['env']['REDIS_HOST']}")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["command"], "uvx", f"Expected 'uvx' command but got {info['command']}")
+
+        finally:
+            if py_literals_temp_dir.exists():
+                shutil.rmtree(py_literals_temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

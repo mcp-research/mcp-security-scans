@@ -380,15 +380,24 @@ def preprocess_json_string(json_str: str) -> str:
     fixed_str = re.sub(r'":(\s*})', '":""\\1', fixed_str)
     fixed_str = re.sub(r'": (\s*})', '":""\\1', fixed_str)
 
+    # Replace Python/JavaScript-style boolean and null literals with valid JSON equivalents
+    py_literals = {'True': 'true', 'False': 'false', 'None': 'null', 'undefined': 'null'}
+    fixed_str = re.sub(
+        r'(?<=[:\[,])(True|False|None|undefined)(?=[,\]}])',
+        lambda m: py_literals[m.group()],
+        fixed_str
+    )
+
     # Fix unquoted placeholder values like XXXXXX (not followed by a comma or closing brace)
-    fixed_str = re.sub(r': *([A-Za-z0-9]+)([,}])', r':"\\1"\\2', fixed_str)
+    # Exclude valid JSON literals (true, false, null) already handled above
+    fixed_str = re.sub(r': *(?!true\b|false\b|null\b)([A-Za-z0-9]+)([,}])', r':"\1"\2', fixed_str)
 
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
 
     # This should only match quoted strings that are NOT part of a key: value pair
     # and are NOT inside arrays (followed by ] rather than })
     # Look for pattern: "string" followed by comma/closing brace but NOT preceded by : " and NOT followed by ]
-    fixed_str = re.sub(r'(?<!: )"([^"]+)"(\s*,\s*})', r'"\1":""\\2', fixed_str)
+    fixed_str = re.sub(r'(?<!: )"([^"]+)"(\s*,\s*})', r'"\1":""\2', fixed_str)
     return fixed_str
 
 
