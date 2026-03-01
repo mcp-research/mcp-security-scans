@@ -148,8 +148,8 @@ class TestUnknownRuntimeSummary(unittest.TestCase):
         
         for runtime_type, expected_count in expected_runtime_counts.items():
             actual_count = stats['runtime_types'].get(runtime_type, 0)
-            self.assertEqual(actual_count, expected_count, 
-                           f"Runtime type '{runtime_type}' should have {expected_count} repos, got {actual_count}")
+            self.assertEqual(actual_count, expected_count,
+                             f"Runtime type '{runtime_type}' should have {expected_count} repos, got {actual_count}")
 
         # Verify unknown repos contain expected information
         unknown_repo_names = [repo['repo_name'] for repo in unknown_repos]
@@ -199,19 +199,19 @@ class TestUnknownRuntimeSummary(unittest.TestCase):
             mock_repo_properties.append(mock_prop)
 
         # Generate report
-        stats = generate_report(mock_repo_properties, "test-org", "test-output")
-        
+        generate_report(mock_repo_properties, "test-org", "test-output")
+
         # Read the generated markdown file
         md_file_path = "test-output/ghas_report_test-org_20250718.md"
         self.assertTrue(os.path.exists(md_file_path), "Markdown report should be generated")
-        
+
         with open(md_file_path, 'r') as f:
             markdown_content = f.read()
-        
+
         # Verify collapsible section is present
         self.assertIn('<details>', markdown_content, "Should contain collapsible details section")
-        self.assertIn('<summary>Show unknown runtime repositories (3 total)</summary>', markdown_content, 
-                     "Should contain summary with count")
+        self.assertIn('<summary>Show unknown runtime repositories (3 total)</summary>', markdown_content,
+                      "Should contain summary with count")
         self.assertIn('test-org/unknown_repo_0', markdown_content, "Should contain repository names")
         self.assertIn('search?q=mcpServers', markdown_content, "Should contain search links")
         
@@ -249,20 +249,20 @@ class TestUnknownRuntimeSummary(unittest.TestCase):
             mock_repo_properties.append(mock_prop)
 
         # Generate report
-        stats = generate_report(mock_repo_properties, "test-org", "test-output")
-        
+        generate_report(mock_repo_properties, "test-org", "test-output")
+
         # Read the generated markdown file
         md_file_path = "test-output/ghas_report_test-org_20250718.md"
         self.assertTrue(os.path.exists(md_file_path), "Markdown report should be generated")
-        
+
         with open(md_file_path, 'r') as f:
             markdown_content = f.read()
-        
+
         # Verify correct truncation message
-        self.assertIn('<summary>Show unknown runtime repositories (15 total)</summary>', markdown_content, 
-                     "Should show total count of 15")
-        self.assertIn('*Showing 10 of 15 repositories with unknown runtime type.*', markdown_content, 
-                     "Should show truncation message")
+        self.assertIn('<summary>Show unknown runtime repositories (15 total)</summary>', markdown_content,
+                      "Should show total count of 15")
+        self.assertIn('*Showing 10 of 15 repositories with unknown runtime type.*', markdown_content,
+                      "Should show truncation message")
         
         # Count how many repo bullet points are actually shown (look for markdown list items)
         repo_lines = [line for line in markdown_content.split('\n') if line.startswith('- [test-org/unknown_repo_')]
@@ -328,8 +328,8 @@ class TestUnknownRuntimeSummary(unittest.TestCase):
         
         # Verify no collapsible section
         self.assertNotIn('<details>', markdown_content, "Should NOT contain collapsible details section")
-        self.assertNotIn('<summary>Show unknown runtime repositories', markdown_content, 
-                        "Should NOT contain unknown repos summary")
+        self.assertNotIn('<summary>Show unknown runtime repositories', markdown_content,
+                         "Should NOT contain unknown repos summary")
         
         print("No unknown repos test completed!")
 
