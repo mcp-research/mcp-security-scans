@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import argparse
 import logging
 import datetime
@@ -558,7 +559,8 @@ def main() -> None:
         logging.info(f"Report generation completed in {duration}")
 
     except Exception as e:
-        logging.error(f"Script failed with an error: {e}")
+        logging.error(f"Script failed with an error: [{e}]")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
