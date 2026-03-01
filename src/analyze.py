@@ -377,6 +377,16 @@ def preprocess_json_string(json_str: str) -> str:
     # not in the middle of a string value (e.g., "path/(optional)" is NOT matched).
     fixed_str = re.sub(r'(?<=[",\[{])\([^)]*\)', '', fixed_str)
 
+    # After comment removal, try parsing immediately. If the JSON is already valid,
+    # return early to avoid later steps (e.g. missing-comma insertion) from
+    # corrupting structurally-correct JSON that contains empty string values.
+    try:
+        json.loads(fixed_str)
+        logging.debug("JSON valid after comment removal; returning without further preprocessing")
+        return fixed_str
+    except json.JSONDecodeError:
+        pass
+
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
     fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
 

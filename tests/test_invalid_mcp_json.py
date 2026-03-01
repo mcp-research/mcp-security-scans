@@ -468,6 +468,73 @@ class TestInvalidMcpJson(unittest.TestCase):
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
+    def test_inline_comment_with_empty_string_value(self):
+        """Test scanning a JSON where a // comment follows an empty string value.
+
+        Regression test for: acryldata__mcp-server-datahub README.md
+        Failed to parse MCP composition JSON: Expecting property name enclosed
+        in double quotes: line 1 column 58 (char 57)
+
+        The preprocessing step that adds missing commas between consecutive quoted
+        strings must not corrupt structurally-valid JSON that contains empty string
+        values followed by a // comment, e.g.:
+            "command": "",  //e.g./Users/hsheth/.local/bin/uvx
+        After whitespace stripping and comment removal this becomes
+            "command":"","args":
+        which is already valid and must not be modified further.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # This JSON mirrors what the scanner extracts from the datahub README after
+            # stripping all whitespace.  The original README contained a multi-line block
+            # like:
+            #   "command": "",  //e.g./Users/hsheth/.local/bin/uvx
+            #   "args": ["mcp-server-datahub"],
+            # After whitespace stripping this collapses to the single-line form below,
+            # where the // comment is immediately followed by the next JSON key.
+            issue_json = (
+                '{"mcpServers":{"datahub":{"command":"",//e.g./Users/hsheth/.local/bin/uvx'
+                '"args":["mcp-server-datahub"],"env":{"DATAHUB_GMS_URL":"","DATAHUB_GMS_TOKEN":""}}}}'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w") as f:
+                f.write("# DataHub MCP Server\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON "
+                                 "with // comment after empty string value")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("datahub", mcp_composition["mcpServers"], "'datahub' key missing")
+
+            datahub_server = mcp_composition["mcpServers"]["datahub"]
+            # The command value must be the empty string, not a comma injected by the
+            # missing-comma preprocessing step.
+            self.assertEqual(datahub_server["command"], "",
+                             f"Expected empty string command but got {datahub_server['command']!r}")
+            self.assertIn("args", datahub_server, "'args' key missing")
+            self.assertEqual(datahub_server["args"], ["mcp-server-datahub"],
+                             f"Unexpected args: {datahub_server['args']}")
+            self.assertIn("env", datahub_server, "'env' key missing")
+            self.assertEqual(datahub_server["env"]["DATAHUB_GMS_URL"], "",
+                             "DATAHUB_GMS_URL should be empty string")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     unittest.main()
