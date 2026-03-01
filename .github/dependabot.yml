@@ -34,3 +34,8 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  - package-ecosystem: npm
+    directory: /tests/test_mcp_scan/examples/mstfe__mcp-google-tasks
+    schedule:
+      interval: daily
