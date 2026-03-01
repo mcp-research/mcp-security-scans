@@ -40,7 +40,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip==25.0
           pip install --require-hashes -r requirements.lock
           
           # Setup the project so that the src module is accessible

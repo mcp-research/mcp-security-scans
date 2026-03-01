@@ -29,7 +29,6 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip==25.0
         pip install --require-hashes -r requirements-dev.lock
 
     - name: Run flake8
