@@ -40,9 +40,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip==25.0
           pip install --require-hashes -r requirements.lock
-          
+
           # Setup the project so that the src module is accessible
           pip install -e .
 
@@ -71,10 +70,10 @@ jobs:
           try:
               # Get the GitHub App client
               gh_app = get_github_client(app_id, private_key)
-              
+
               # Get the installation client and auth
               _, installation_auth = get_installation_github_client(gh_app, target_org)
-              
+
               # Print the token so we can capture it in the shell
               print(installation_auth.token)
           except Exception as e:
@@ -89,6 +88,6 @@ jobs:
           fi
 
           echo "Successfully generated GitHub token with length: [${#TOKEN}]"
-          
+
           # Run the repository properties creation script
           ./create_repo_properties.sh "$TARGET_ORG" "$TOKEN"
