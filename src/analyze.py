@@ -335,9 +335,11 @@ def preprocess_json_string(json_str: str) -> str:
     Fixes:
     - Comments using // or # syntax
     - Trailing commas before closing braces (e.g., "key": "value",})
+    - Missing commas between consecutive quoted strings (e.g., "value""key": or ]"key":)
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
+    - Parenthetical comments used as placeholders (e.g., (... and so on))
 
     Args:
         json_str: The JSON string to preprocess
@@ -357,8 +359,8 @@ def preprocess_json_string(json_str: str) -> str:
     # Pattern 1: ,#comment"key": -> ,"key":
     fixed_str = re.sub(r',#[^"]*"', ',"', fixed_str)
 
-    # Pattern 2: "value"#comment} -> "value"}
-    fixed_str = re.sub(r'"#[^}]*}', '"}', fixed_str)
+    # Pattern 2: "value"#comment} -> "value"} OR "value"#comment] -> "value"]
+    fixed_str = re.sub(r'"#[^,\]}\n]*([,\]}])', lambda m: '"' + m.group(1), fixed_str)
 
     # Pattern 3: {#comment"key": -> {"key":
     fixed_str = re.sub(r'{#[^"]*"', '{"', fixed_str)
@@ -369,8 +371,23 @@ def preprocess_json_string(json_str: str) -> str:
     # Remove # comments to end of line (for multi-line JSON)
     fixed_str = re.sub(r'#.*$', '', fixed_str, flags=re.MULTILINE)
 
+    # Remove parenthetical comments that appear after a JSON value in arrays
+    # (e.g., "last-value"(... and so on)] -> "last-value"])
+    # Lookbehind ensures we only match parens that come after structural JSON characters,
+    # not in the middle of a string value (e.g., "path/(optional)" is NOT matched).
+    fixed_str = re.sub(r'(?<=[",\[{])\([^)]*\)', '', fixed_str)
+
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
     fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
+
+    # Fix missing comma after a closing array bracket followed by a property key
+    # e.g., ]"env": -> ],"env":
+    fixed_str = re.sub(r'(\])"', r'\1,"', fixed_str)
+
+    # Fix missing commas between consecutive quoted strings (both object properties and array values)
+    # e.g., "value""key": -> "value","key":  and  "val1""val2" -> "val1","val2"
+    # Uses [^"\\]* to avoid matching escaped quotes within strings.
+    fixed_str = re.sub(r'("[^"\\]*")("[^"\\]*")', r'\1,\2', fixed_str)
 
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
@@ -611,6 +628,8 @@ def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
                 server_type = "uv"
             elif command == "npx":
                 server_type = "npx"
+            elif Path(command).name == "node":
+                server_type = "node"
 
             args = server_info.get("args", [])
             # Return info for the first server found
@@ -628,6 +647,54 @@ def get_composition_info(composition: Dict) -> tuple[Dict, Optional[Dict]]:
             "json_config": json.dumps(composition, indent=2) if composition else "None"
         }
         return {}, error_details
+
+
+def detect_runtime_from_package_files(local_repo_path: Path) -> Dict:
+    """
+    Attempts to detect the MCP server runtime by analyzing package files when
+    no MCP composition config is found in the repository.
+
+    Checks for Node.js package.json files containing @modelcontextprotocol/sdk,
+    and Python package files (pyproject.toml, requirements.txt) containing the mcp package.
+
+    Args:
+        local_repo_path: Path to the local repository.
+
+    Returns:
+        A dict with server_type and related fields if detected, or empty dict if not detected.
+    """
+    package_json_path = local_repo_path / "package.json"
+    if package_json_path.exists():
+        try:
+            with open(package_json_path, 'r', encoding='utf-8') as f:
+                package_data = json.load(f)
+            dependencies = package_data.get("dependencies", {})
+            dev_dependencies = package_data.get("devDependencies", {})
+            all_deps = {**dependencies, **dev_dependencies}
+            if "@modelcontextprotocol/sdk" in all_deps:
+                logging.info(f"Detected [node] runtime from package.json in [{local_repo_path}]")
+                return {"server": "", "server_type": "node", "command": "node", "args": []}
+        except Exception as e:
+            logging.warning(f"Error reading package.json from [{local_repo_path}]: [{e}]")
+
+    python_patterns = {
+        "requirements.txt": r'(?m)^\s*mcp\s*(?:[><=!~,\[]|#|$)',
+        "pyproject.toml": r'["\']mcp["\'><=!~]',
+        "setup.py": r'["\']mcp["\'><=!~]',
+    }
+    for python_file, pattern in python_patterns.items():
+        python_path = local_repo_path / python_file
+        if python_path.exists():
+            try:
+                with open(python_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                if re.search(pattern, content):
+                    logging.info(f"Detected [uv] runtime from [{python_file}] in [{local_repo_path}]")
+                    return {"server": "", "server_type": "uv", "command": "uv", "args": []}
+            except Exception as e:
+                logging.warning(f"Error reading [{python_file}] from [{local_repo_path}]: [{e}]")
+
+    return {}
 
 
 def _format_secret_types_for_storage(secret_types_dict):
@@ -818,7 +885,11 @@ def main():
                     runtime = {}
                 else:
                     logging.info(f"No MCP composition found in repository [{repo.name}]")
-                    runtime = {}
+                    runtime = detect_runtime_from_package_files(local_repo_path)
+                    if runtime:
+                        logging.info(f"Detected runtime from package files for [{repo.name}]: [{runtime}]")
+                    else:
+                        logging.info(f"Could not detect runtime for [{repo.name}]")
 
                 # Handle composition analysis failures for issue creation
                 if scan_error:

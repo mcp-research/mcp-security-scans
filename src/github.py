@@ -93,7 +93,7 @@ def list_all_repository_properties_for_org(gh: GitHub, org: str) -> list[dict[st
     all_properties = []
     logging.info(f"Fetching all custom repository properties for organization [{org}]...")
     try:
-        paginated_properties = gh.paginate(gh.rest.orgs.list_custom_properties_values_for_repos, org=org)
+        paginated_properties = gh.paginate(gh.rest.orgs.custom_properties_for_repos_get_organization_values, org=org)
 
         # iterate through the paginated results
         for prop in paginated_properties:

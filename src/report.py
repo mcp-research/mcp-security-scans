@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import argparse
 import logging
 import datetime
@@ -190,6 +191,8 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 if runtime_type == "":
                     runtime_type = "unknown"
                 runtime_types[runtime_type] += 1
+                if runtime_type == "unknown":
+                    unknown_runtime_repos.append({'name': full_name, 'scan_date': scan_date_str})
 
                 # Track repositories with unknown runtime type
                 if runtime_type == "unknown":
@@ -270,6 +273,7 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
         'secret_alerts_by_type': dict(secret_alerts_by_type),
         # Add runtime type breakdown
         'runtime_types': dict(runtime_types),
+        # Add unknown runtime repos list
         'unknown_runtime_repos': unknown_runtime_repos,
         'alerts_by_date': dict(alerts_by_date),
         'repos_alerts': repos_alerts,
@@ -380,26 +384,20 @@ def _write_markdown_report(stats: Dict, output_file, summary_file_path: str) -> 
                 f.write(f'    "{runtime_type}" : {percentage:.1f}\n')
             f.write("```\n\n")
 
-            # Add collapsible section for unknown runtime repos
+            # Add collapsible section for latest repos with unknown runtime
             unknown_repos = stats.get('unknown_runtime_repos', [])
-            unknown_count = len(unknown_repos)
-            if unknown_count > 0:
+            if unknown_repos:
+                latest_unknown = sorted(
+                    unknown_repos,
+                    key=lambda x: x.get('scan_date') or '',
+                    reverse=True
+                )[:10]
                 f.write("<details>\n")
-                f.write(f"<summary>Show unknown runtime repositories ({unknown_count} total)</summary>\n\n")
-                f.write("The following repositories could not be identified for their MCP server runtime type. ")
-                f.write("Click on the links to investigate their MCP composition files:\n\n")
-
-                # Show up to 10 repositories
-                repos_to_show = unknown_repos[:10]
-                for repo in repos_to_show:
-                    repo_name = repo['name']
-                    github_url = repo['github_url']
-                    search_url = repo['search_url']
-                    f.write(f"- [{repo_name}]({github_url}) - [Search for mcpServers]({search_url})\n")
-
-                if unknown_count > 10:
-                    f.write(f"\n*Showing 10 of {unknown_count} repositories with unknown runtime type.*\n")
-
+                f.write("<summary>Latest 10 repositories with unknown runtime</summary>\n\n")
+                f.write("| Repository | Last Scanned |\n")
+                f.write("|------------|-------------|\n")
+                for repo in latest_unknown:
+                    f.write(f"| {repo['name']} | {repo.get('scan_date', '')} |\n")
                 f.write("\n</details>\n\n")
         else:
             f.write("No MCP server runtime information available.\n\n")
@@ -593,7 +591,8 @@ def main() -> None:
         logging.info(f"Report generation completed in {duration}")
 
     except Exception as e:
-        logging.error(f"Script failed with an error: {e}")
+        logging.error(f"Script failed with an error: [{e}]")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
