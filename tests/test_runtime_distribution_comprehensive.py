@@ -140,22 +140,22 @@ class TestRuntimeDistributionComprehensive(unittest.TestCase):
         self.assertEqual(total_repos, 5, "Should have 5 total repositories")
         self.assertEqual(scanned_repos, 3, "Should have 3 scanned repositories (with GHAS_STATUS_UPDATED)")
         
-        # Key insight: Only repositories that are marked as scanned (have GHAS_STATUS_UPDATED) 
+        # Key insight: Only repositories that are marked as scanned (have GHAS_STATUS_UPDATED)
         # should be included in runtime distribution, even if they have runtime properties
         self.assertEqual(runtime_total, scanned_repos, "Runtime total should match scanned repos")
         
         # Verify specific runtime counts - only from scanned repos
         expected_runtime_counts = {
             'uv': 1,      # repo1
-            'unknown': 2, # repo2 (explicit "unknown") + repo5 (empty "" converted to "unknown")
+            'unknown': 2,  # repo2 (explicit "unknown") + repo5 (empty "" converted to "unknown")
             # repo3 has 'npx' but no GHAS_STATUS_UPDATED, so it shouldn't be counted
             # repo4 has no properties, so not counted
         }
         
         for runtime_type, expected_count in expected_runtime_counts.items():
             actual_count = stats['runtime_types'].get(runtime_type, 0)
-            self.assertEqual(actual_count, expected_count, 
-                           f"Runtime type '{runtime_type}' should have {expected_count} repos, got {actual_count}")
+            self.assertEqual(actual_count, expected_count,
+                             f"Runtime type '{runtime_type}' should have {expected_count} repos, got {actual_count}")
 
         print("Comprehensive runtime distribution test completed!")
         

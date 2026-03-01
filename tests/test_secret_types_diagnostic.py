@@ -3,9 +3,7 @@
 import unittest
 import sys
 import os
-from unittest.mock import Mock, patch
 import tempfile
-import json
 
 # Add the parent directory to the path so we can import the src module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -44,7 +42,7 @@ class TestSecretTypesDiagnostic(unittest.TestCase):
                 Constants.AlertProperties.DEPENDENCY_ALERTS: "0",
             }),
             MockRepoProperty("repo2", {
-                Constants.ScanSettings.GHAS_STATUS_UPDATED: "2023-01-01T00:00:00", 
+                Constants.ScanSettings.GHAS_STATUS_UPDATED: "2023-01-01T00:00:00",
                 Constants.AlertProperties.SECRET_ALERTS_TOTAL: "3",
                 # Missing SECRET_ALERTS_BY_TYPE property entirely
                 Constants.AlertProperties.CODE_ALERTS: "0",
@@ -101,7 +99,7 @@ class TestSecretTypesDiagnostic(unittest.TestCase):
             }),
             MockRepoProperty("repo_invalid_json", {
                 Constants.ScanSettings.GHAS_STATUS_UPDATED: "2023-01-01T00:00:00",
-                Constants.AlertProperties.SECRET_ALERTS_TOTAL: "1", 
+                Constants.AlertProperties.SECRET_ALERTS_TOTAL: "1",
                 Constants.AlertProperties.SECRET_ALERTS_BY_TYPE: "invalid json",  # Invalid JSON
             }),
         ]
