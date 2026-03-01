@@ -335,9 +335,11 @@ def preprocess_json_string(json_str: str) -> str:
     Fixes:
     - Comments using // or # syntax
     - Trailing commas before closing braces (e.g., "key": "value",})
+    - Missing commas between consecutive quoted strings (e.g., "value""key": or ]"key":)
     - Empty values after a colon (e.g., "key":,)
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
+    - Parenthetical comments used as placeholders (e.g., (... and so on))
 
     Args:
         json_str: The JSON string to preprocess
@@ -357,8 +359,8 @@ def preprocess_json_string(json_str: str) -> str:
     # Pattern 1: ,#comment"key": -> ,"key":
     fixed_str = re.sub(r',#[^"]*"', ',"', fixed_str)
 
-    # Pattern 2: "value"#comment} -> "value"}
-    fixed_str = re.sub(r'"#[^}]*}', '"}', fixed_str)
+    # Pattern 2: "value"#comment} -> "value"} OR "value"#comment] -> "value"]
+    fixed_str = re.sub(r'"#[^,\]}\n]*([,\]}])', lambda m: '"' + m.group(1), fixed_str)
 
     # Pattern 3: {#comment"key": -> {"key":
     fixed_str = re.sub(r'{#[^"]*"', '{"', fixed_str)
@@ -369,8 +371,23 @@ def preprocess_json_string(json_str: str) -> str:
     # Remove # comments to end of line (for multi-line JSON)
     fixed_str = re.sub(r'#.*$', '', fixed_str, flags=re.MULTILINE)
 
+    # Remove parenthetical comments that appear after a JSON value in arrays
+    # (e.g., "last-value"(... and so on)] -> "last-value"])
+    # Lookbehind ensures we only match parens that come after structural JSON characters,
+    # not in the middle of a string value (e.g., "path/(optional)" is NOT matched).
+    fixed_str = re.sub(r'(?<=[",\[{])\([^)]*\)', '', fixed_str)
+
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
     fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
+
+    # Fix missing comma after a closing array bracket followed by a property key
+    # e.g., ]"env": -> ],"env":
+    fixed_str = re.sub(r'(\])"', r'\1,"', fixed_str)
+
+    # Fix missing commas between consecutive quoted strings (both object properties and array values)
+    # e.g., "value""key": -> "value","key":  and  "val1""val2" -> "val1","val2"
+    # Uses [^"\\]* to avoid matching escaped quotes within strings.
+    fixed_str = re.sub(r'("[^"\\]*")("[^"\\]*")', r'\1,\2', fixed_str)
 
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
