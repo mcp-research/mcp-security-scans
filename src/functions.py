@@ -142,8 +142,8 @@ def check_secret_alerts_completeness(properties: Dict[str, Any]) -> bool:
     if secret_alerts_total > 0:
         secret_alerts_by_type = properties.get("SecretAlerts_By_Type")
         # Handle case where SecretAlerts_By_Type is stored as string "None" or missing/empty
-        if (secret_alerts_by_type is None or secret_alerts_by_type == "None"
-                or secret_alerts_by_type == "{}" or secret_alerts_by_type == ""):
+        if (secret_alerts_by_type is None or secret_alerts_by_type == "None" or
+                secret_alerts_by_type == "{}" or secret_alerts_by_type == ""):
             logging.info("Repository has secret alerts but missing type breakdown. Scanning GHAS alerts...")
             return False
     return True

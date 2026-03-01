@@ -324,7 +324,7 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
              if is_running_interactively():
                 logging.error("Detailed property values that caused the error:")
                 for idx, prop in enumerate(custom_properties_list):
-                    logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+                    logging.error(f"  [{idx + 1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
         handle_github_api_error(e, f"updating custom repository properties {property_names} for [{target_org}/{target_repo_name}]")
         raise
     except Exception as e:
@@ -334,7 +334,7 @@ def update_repository_properties(gh: GitHub, target_org: str, target_repo_name: 
         if is_running_interactively():
             logging.error("Detailed property values that caused the error:")
             for idx, prop in enumerate(custom_properties_list):
-                logging.error(f"  [{idx+1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
+                logging.error(f"  [{idx + 1}]. Property: [{prop['property_name']}], Value: [{prop['value']}], Type: [{type(properties[prop['property_name']]).__name__}]")
 
         raise
 

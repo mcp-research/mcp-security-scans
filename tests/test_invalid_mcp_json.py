@@ -165,7 +165,14 @@ class TestInvalidMcpJson(unittest.TestCase):
         
         try:
             # Create the exact JSON from the issue that should fail without comment removal
-            json_with_comments = """{"mcpServers":{"thirdweb-mcp":{"command":"thirdweb-mcp","args":[],//add`--chain-id`optionally"env":{"THIRDWEB_SECRET_KEY":"yourthirdwebsecretkeyfromdashboard","THIRDWEB_ENGINE_URL":"(OPTIONAL)yourengineurl","THIRDWEB_ENGINE_AUTH_JWT":"(OPTIONAL)yourengineauthjwt","THIRDWEB_ENGINE_BACKEND_WALLET_ADDRESS":"(OPTIONAL)yourenginebackendwalletaddress",},}}}"""
+            json_with_comments = (
+                '{"mcpServers":{"thirdweb-mcp":{"command":"thirdweb-mcp","args":[],'
+                '//add`--chain-id`optionally"env":{"THIRDWEB_SECRET_KEY":"yourthirdwebsecretkeyfromdashboard",'
+                '"THIRDWEB_ENGINE_URL":"(OPTIONAL)yourengineurl",'
+                '"THIRDWEB_ENGINE_AUTH_JWT":"(OPTIONAL)yourengineauthjwt",'
+                '"THIRDWEB_ENGINE_BACKEND_WALLET_ADDRESS":"(OPTIONAL)yourenginebackendwalletaddress",'
+                '},}}}'
+            )
             
             # Create a temporary test file with the JSON containing comments
             comments_file = comments_temp_dir / "comments_test.md"
