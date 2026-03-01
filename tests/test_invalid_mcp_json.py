@@ -316,5 +316,158 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(py_literals_temp_dir)
 
 
+    def test_missing_commas_between_properties(self):
+        """Test scanning a JSON with missing commas between properties (e.g. evalstate/mcp-hfspace README)."""
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # Mirrors the evalstate README pattern: missing commas between "command":"npx" and "args":[...]
+            # and between array elements, plus a parenthetical placeholder comment
+            json_missing_commas = """{
+  "mcpServers": {
+    "mcp-hfspace": {
+      "command": "npx"
+      "args": [
+        "-y",
+        "@llmindset/mcp-hfspace",
+        "--HF_TOKEN=HF_{optional token}"
+        "Qwen/Qwen2-72B-Instruct",
+        "black-forest-labs/FLUX.1-schnell"
+        (... and so on)
+        ]
+    }
+  }
+}"""
+
+            test_file = temp_dir / "missing_commas_test.md"
+            with open(test_file, "w") as f:
+                f.write("# MCP Configuration with Missing Commas\n\n")
+                f.write("```json\n")
+                f.write(json_missing_commas)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON with missing commas")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("mcp-hfspace", mcp_composition["mcpServers"],
+                          "'mcp-hfspace' key missing in parsed composition")
+
+            server = mcp_composition["mcpServers"]["mcp-hfspace"]
+            self.assertEqual(server["command"], "npx",
+                             f"Expected 'npx' command but got {server['command']}")
+            self.assertIn("args", server, "'args' key missing in parsed composition")
+            self.assertIn("-y", server["args"], "'-y' missing from parsed args")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_missing_comma_after_array_close(self):
+        """Test scanning a JSON with a missing comma between an array and the next property
+        (e.g. runekaagaard/mcp-notmuch-sendmail README)."""
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # Mirrors the runekaagaard README pattern: missing comma between args:[...] and "env":{...}
+            json_missing_comma = """{
+  "mcpServers": {
+    "email": {
+      "command": "uvx",
+      "args": ["--from", "mcp-notmuch-sendmail==2025.04.09", "--python", "3.10",
+               "--refresh", "mcp-notmuch-sendmail"]
+      "env": {
+        "NOTMUCH_DATABASE_PATH": "/path/to/notmuch/db",
+        "SENDMAIL_FROM_EMAIL": "your.email@example.com"
+      }
+    }
+  }
+}"""
+
+            test_file = temp_dir / "missing_comma_after_array.md"
+            with open(test_file, "w") as f:
+                f.write("# MCP Notmuch Sendmail\n\n")
+                f.write("```json\n")
+                f.write(json_missing_comma)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON with missing comma after array")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("email", mcp_composition["mcpServers"],
+                          "'email' key missing in parsed composition")
+
+            server = mcp_composition["mcpServers"]["email"]
+            self.assertEqual(server["command"], "uvx",
+                             f"Expected 'uvx' command but got {server['command']}")
+            self.assertIn("env", server, "'env' key missing in parsed composition")
+            self.assertEqual(server["env"]["NOTMUCH_DATABASE_PATH"], "/path/to/notmuch/db",
+                             "NOTMUCH_DATABASE_PATH value incorrect")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+    def test_hash_comment_with_quoted_text_in_array(self):
+        """Test scanning a JSON with a hash comment containing quoted text inside an array
+        (e.g. isaacwasserman/mcp-vegalite-server README)."""
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # Mirrors the isaacwasserman README pattern: a Python code block with
+            # "png" # or "text" as a commented-out alternative value in an array
+            json_hash_comment = """{
+  "mcpServers": {
+    "datavis": {
+        "command": "uv",
+        "args": [
+            "--directory",
+            "/absolute/path/to/mcp-datavis-server",
+            "run",
+            "mcp_server_datavis",
+            "--output_type",
+            "png" # or "text"
+        ]
+    }
+  }
+}"""
+
+            test_file = temp_dir / "hash_comment_in_array.md"
+            with open(test_file, "w") as f:
+                f.write("# Data Visualization MCP Server\n\n")
+                f.write("```python\n")
+                f.write("# Add the server to your claude_desktop_config.json\n")
+                f.write(json_hash_comment)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON with quoted hash comment")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("datavis", mcp_composition["mcpServers"],
+                          "'datavis' key missing in parsed composition")
+
+            server = mcp_composition["mcpServers"]["datavis"]
+            self.assertEqual(server["command"], "uv",
+                             f"Expected 'uv' command but got {server['command']}")
+            self.assertIn("args", server, "'args' key missing in parsed composition")
+            self.assertIn("png", server["args"], "'png' missing from parsed args")
+            self.assertNotIn("text", server["args"], "'text' should have been removed as part of a comment")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()
