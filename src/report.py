@@ -194,6 +194,15 @@ def generate_report(repo_properties: List[Dict], target_org: str, output_dir: st
                 if runtime_type == "unknown":
                     unknown_runtime_repos.append({'name': full_name, 'scan_date': scan_date_str})
 
+                # Track repositories with unknown runtime type
+                if runtime_type == "unknown":
+                    unknown_runtime_repos.append({
+                        'name': full_name,
+                        'repo_name': repo_name,
+                        'github_url': f"https://github.com/{full_name}",
+                        'search_url': f"https://github.com/{full_name}/search?q=mcpServers"
+                    })
+
             # Add to totals
             total_code_alerts += code_alerts
             total_secret_alerts += secret_alerts
