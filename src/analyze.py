@@ -421,9 +421,17 @@ def preprocess_json_string(json_str: str) -> str:
         fixed_str
     )
 
-    # Fix unquoted placeholder values like XXXXXX (not followed by a comma or closing brace)
+    # Fix unquoted placeholder values like XXXXXX or python_path (not followed by a comma or closing brace)
     # Exclude valid JSON literals (true, false, null) already handled above
-    fixed_str = re.sub(r': *(?!true\b|false\b|null\b)([A-Za-z0-9]+)([,}])', r':"\1"\2', fixed_str)
+    fixed_str = re.sub(r': *(?!true\b|false\b|null\b)([A-Za-z0-9_]+)([,}])', r':"\1"\2', fixed_str)
+
+    # Fix unquoted identifier values inside arrays (e.g., [server_script_path] or [path1,path2])
+    # Exclude valid JSON literals (true, false, null) already handled above
+    fixed_str = re.sub(
+        r'(?<=[\[,])(?!true\b|false\b|null\b)([A-Za-z][A-Za-z0-9_]*)(?=[,\]])',
+        r'"\1"',
+        fixed_str
+    )
 
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
 
