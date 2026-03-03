@@ -536,9 +536,12 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                             search_end_limit = len(stripped_content)
 
                         # find the end of the json string by counting all the next opening { and finding as much } chars
+                        # Track string context to avoid counting brackets inside JSON string values
                         end = start
                         open_brackets = 1
                         close_brackets = 0
+                        in_string = False
+                        escape_next = False
                         while open_brackets != close_brackets:
                             end += 1
                             # Check if we've reached the search limit (code block end or content end)
@@ -570,9 +573,21 @@ def scan_repo_for_mcp_composition(local_repo_path: Path) -> tuple[Optional[Dict]
                                     }
                                     mcp_composition = None
                                     break
-                            if stripped_content[end] == '{':
+                            char = stripped_content[end]
+                            if escape_next:
+                                escape_next = False
+                                continue
+                            if char == '\\' and in_string:
+                                escape_next = True
+                                continue
+                            if char == '"':
+                                in_string = not in_string
+                                continue
+                            if in_string:
+                                continue
+                            if char == '{':
                                 open_brackets += 1
-                            elif stripped_content[end] == '}':
+                            elif char == '}':
                                 close_brackets += 1
 
                         # If we didn't break out due to error and haven't already parsed the composition
