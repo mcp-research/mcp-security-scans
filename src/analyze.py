@@ -353,7 +353,8 @@ def preprocess_json_string(json_str: str) -> str:
 
     # First, let's try to identify and remove inline comments that are clearly not part of JSON values
     # Pattern: //[text that is clearly a comment]" followed by JSON
-    fixed_str = re.sub(r'//[^"]*?"', '"', json_str)
+    # Use negative lookbehind for ':' to avoid matching '://' in URLs like http://
+    fixed_str = re.sub(r'(?<!:)//[^"]*?"', '"', json_str)
 
     # Handle inline # comments more carefully
     # Pattern 1: ,#comment"key": -> ,"key":
@@ -366,7 +367,8 @@ def preprocess_json_string(json_str: str) -> str:
     fixed_str = re.sub(r'{#[^"]*"', '{"', fixed_str)
 
     # Remove standalone // comments to end of line (for multi-line JSON)
-    fixed_str = re.sub(r'//.*$', '', fixed_str, flags=re.MULTILINE)
+    # Use negative lookbehind for ':' to avoid matching '://' in URLs like http://
+    fixed_str = re.sub(r'(?<!:)//.*$', '', fixed_str, flags=re.MULTILINE)
 
     # Remove # comments to end of line (for multi-line JSON)
     fixed_str = re.sub(r'#.*$', '', fixed_str, flags=re.MULTILINE)
@@ -376,6 +378,10 @@ def preprocess_json_string(json_str: str) -> str:
     # Lookbehind ensures we only match parens that come after structural JSON characters,
     # not in the middle of a string value (e.g., "path/(optional)" is NOT matched).
     fixed_str = re.sub(r'(?<=[",\[{])\([^)]*\)', '', fixed_str)
+
+    # Remove ellipsis placeholder comments (e.g., ,...其它MCPServer配置 or ,...other configs)
+    # These appear in README files as shorthand for "and other configurations"
+    fixed_str = re.sub(r',\s*\.\.\.[^,}\]"\n]*', '', fixed_str)
 
     # After comment removal, try parsing immediately. If the JSON is already valid,
     # return early to avoid later steps (e.g. missing-comma insertion) from

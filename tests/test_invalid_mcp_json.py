@@ -536,5 +536,49 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_json_with_ellipsis_placeholder(self):
+        """Test scanning a JSON with an ellipsis placeholder comment (e.g. lzsheng__Yapi-MCP README).
+
+        Regression test for: lzsheng__Yapi-MCP README.md
+        Failed to parse MCP composition JSON: Expecting property name enclosed in
+        double quotes: line 1 column 63 (char 62)
+
+        The JSON contains `,...其它MCPServer配置` (Chinese text meaning "other MCP server
+        configurations") as a placeholder after a real server entry.  This must be stripped
+        before the JSON is parsed.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = (
+                '{"mcpServers":{"yapi-mcp":{"url":"http://localhost:3388/sse"},...其它MCPServer配置}}'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("# Yapi MCP Server\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON "
+                                 "with ellipsis placeholder")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("yapi-mcp", mcp_composition["mcpServers"], "'yapi-mcp' key missing")
+
+            yapi_server = mcp_composition["mcpServers"]["yapi-mcp"]
+            self.assertEqual(yapi_server["url"], "http://localhost:3388/sse",
+                             f"Unexpected url: {yapi_server.get('url')!r}")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()
