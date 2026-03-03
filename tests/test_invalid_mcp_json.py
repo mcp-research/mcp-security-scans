@@ -579,6 +579,48 @@ class TestInvalidMcpJson(unittest.TestCase):
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
+    def test_unquoted_python_variable_values(self):
+        """Test scanning a JSON where values are unquoted Python variable names with underscores.
+
+        Regression test for: GongRzhe__Audio-MCP-Server setup_mcp.py
+        Failed to parse MCP composition JSON: Expecting value: line 1 column 45 (char 44)
+
+        The JSON contains Python variable names like python_path and server_script_path as
+        unquoted values instead of quoted strings.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = (
+                '{"mcpServers":{"audio-interface":{"command":python_path,'
+                '"args":[server_script_path],"env":{"PYTHONPATH":base_path,'
+                '"GOOGLE_API_KEY":"XXX"}}}}'
+            )
+
+            test_file = temp_dir / "setup_mcp.py"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write('# MCP setup script\n')
+                f.write('config = ' + issue_json + '\n')
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with unquoted Python variable names"
+            )
+            self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("audio-interface", mcp_composition["mcpServers"], "'audio-interface' key missing")
+
+            server = mcp_composition["mcpServers"]["audio-interface"]
+            self.assertIn("command", server, "'command' key missing")
+            self.assertIn("args", server, "'args' key missing")
+            self.assertIn("env", server, "'env' key missing")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     unittest.main()
