@@ -622,5 +622,64 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_windows_path_backslashes(self):
+        """Test scanning a JSON with unescaped Windows-style paths.
+
+        Regression test for: punkpeye__mcp-filesystem-python claude_desktop_config_windows.json
+        Failed to parse MCP composition JSON: (unicode error) 'unicodeescape' codec can't
+        decode bytes in position 75-76: truncated \\UXXXXXXXX escape
+
+        Windows paths like C:\\Users\\username\\Desktop use backslashes that are not valid
+        JSON escape sequences, causing the parser to fail.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = """{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\username\\Desktop",
+        "C:\\Users\\username\\Documents"
+      ]
+    }
+  }
+}"""
+
+            test_file = temp_dir / "claude_desktop_config_windows.json"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write(issue_json)
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with Windows-style paths"
+            )
+            self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("filesystem", mcp_composition["mcpServers"], "'filesystem' key missing")
+
+            server = mcp_composition["mcpServers"]["filesystem"]
+            self.assertEqual(server["command"], "npx", f"Expected 'npx' but got {server['command']}")
+            self.assertIn("args", server, "'args' key missing")
+            # Verify that the Windows-style paths are preserved correctly after preprocessing
+            self.assertIn("C:\\Users\\username\\Desktop", server["args"],
+                          "Windows Desktop path missing from args")
+            self.assertIn("C:\\Users\\username\\Documents", server["args"],
+                          "Windows Documents path missing from args")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

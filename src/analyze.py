@@ -383,6 +383,11 @@ def preprocess_json_string(json_str: str) -> str:
     # These appear in README files as shorthand for "and other configurations"
     fixed_str = re.sub(r',\s*\.\.\.[^,}\]"\n]*', '', fixed_str)
 
+    # Fix invalid JSON escape sequences (e.g., Windows paths like C:\Users\)
+    # In JSON, valid escape sequences are: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+    # Replace any backslash not followed by a valid JSON escape character with \\
+    fixed_str = re.sub(r'\\(?!["\\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', fixed_str)
+
     # After comment removal, try parsing immediately. If the JSON is already valid,
     # return early to avoid later steps (e.g. missing-comma insertion) from
     # corrupting structurally-correct JSON that contains empty string values.
