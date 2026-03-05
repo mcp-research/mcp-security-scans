@@ -739,5 +739,57 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_hash_comment_at_array_start_with_windows_path(self):
+        """Test scanning a JSON where a hash comment appears at the start of an array
+        followed by consecutive string values including Windows paths.
+
+        Regression test for: daobataotie__mssql-mcp README.md
+        Failed to parse MCP composition JSON: Expecting value: line 1 column 52 (char 51)
+
+        The args array contains a hash comment before the first quoted value:
+            "args":[#yourpath，e.g.："C:\\\\mssql-mcp\\\\src\\\\server.py""~/server.py"]
+        This needs two fixes:
+        1. Remove the [#comment" prefix (new pattern for array-start hash comments)
+        2. Add a missing comma between the two consecutive string values
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # \uff0c and \uff1a are fullwidth comma and colon from the original Chinese README
+            issue_json = (
+                '{"mcpServers":{"mssql":{"command":"python","args":'
+                '[#yourpath\uff0ce.g.\uff1a"C:\\\\mssql-mcp\\\\src\\\\server.py""~/server.py"]}}}'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("# MSSQL MCP Server\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with hash comment at array start"
+            )
+            self.assertIsNone(error_details,
+                               f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("mssql", mcp_composition["mcpServers"], "'mssql' key missing")
+
+            server = mcp_composition["mcpServers"]["mssql"]
+            self.assertEqual(server["command"], "python",
+                             f"Expected 'python' but got {server['command']}")
+            self.assertIn("args", server, "'args' key missing")
+            self.assertIn("~/server.py", server["args"],
+                          "'~/server.py' missing from parsed args")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()
