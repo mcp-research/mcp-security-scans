@@ -42,14 +42,12 @@ jobs:
         run: |
           pip install --require-hashes -r requirements.lock
 
-          # Setup the project so that the src module is accessible
-          pip install -e .
-
       - name: Generate GitHub token and run script
         env:
           GH_APP_ID: ${{ vars.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           TARGET_ORG: ${{ github.event.inputs.target_org || env.DEFAULT_TARGET_ORG }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           # Make scripts executable
           chmod +x create_repo_properties.sh
