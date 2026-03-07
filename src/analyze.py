@@ -340,6 +340,7 @@ def preprocess_json_string(json_str: str) -> str:
     - Unquoted values like XXXXXX (placeholder values)
     - Empty entries with missing values (e.g., "key")
     - Parenthetical comments used as placeholders (e.g., (... and so on))
+    - Hash comments at the start of an array (e.g., [#comment"value")
 
     Args:
         json_str: The JSON string to preprocess
@@ -371,6 +372,10 @@ def preprocess_json_string(json_str: str) -> str:
     # below, which would otherwise greedily eat the structural characters that follow.
     fixed_str = re.sub(r'(?<!:)//[^\n]*?([{}\[\]])', r'\1', fixed_str)
 
+    # Pattern 4: [#comment"value" -> ["value"
+    # e.g., args:[#yourpath，e.g.："C:\\path\\server.py"] -> args:["C:\\path\\server.py"]
+    fixed_str = re.sub(r'\[#[^"]*"', '["', fixed_str)
+
     # Remove standalone // comments to end of line (for multi-line JSON)
     # Use negative lookbehind for ':' to avoid matching '://' in URLs like http://
     fixed_str = re.sub(r'(?<!:)//.*$', '', fixed_str, flags=re.MULTILINE)
@@ -391,7 +396,9 @@ def preprocess_json_string(json_str: str) -> str:
     # Fix invalid JSON escape sequences (e.g., Windows paths like C:\Users\)
     # In JSON, valid escape sequences are: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
     # Replace any backslash not followed by a valid JSON escape character with \\
-    fixed_str = re.sub(r'\\(?!["\\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', fixed_str)
+    # Use negative lookbehind (?<!\\) to avoid processing the second backslash in an
+    # already-valid \\ escape sequence (e.g., C:\\mssql should not become C:\\\mssql).
+    fixed_str = re.sub(r'(?<!\\)\\(?!["\\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', fixed_str)
 
     # After comment removal, try parsing immediately. If the JSON is already valid,
     # return early to avoid later steps (e.g. missing-comma insertion) from
@@ -412,8 +419,8 @@ def preprocess_json_string(json_str: str) -> str:
 
     # Fix missing commas between consecutive quoted strings (both object properties and array values)
     # e.g., "value""key": -> "value","key":  and  "val1""val2" -> "val1","val2"
-    # Uses [^"\\]* to avoid matching escaped quotes within strings.
-    fixed_str = re.sub(r'("[^"\\]*")("[^"\\]*")', r'\1,\2', fixed_str)
+    # Uses (?:[^"\\]|\\.)* to correctly handle escaped characters (e.g., Windows paths with \\).
+    fixed_str = re.sub(r'("(?:[^"\\]|\\.)*")("(?:[^"\\]|\\.)*")', r'\1,\2', fixed_str)
 
     # Fix empty values after a colon (e.g., "key":,)
     fixed_str = re.sub(r'":,', '":"",', fixed_str)
