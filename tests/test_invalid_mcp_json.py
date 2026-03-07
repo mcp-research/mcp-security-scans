@@ -681,5 +681,63 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_inline_comment_before_closing_braces(self):
+        """Test scanning a JSON where a // comment is the last item before closing braces.
+
+        Regression test for: Spathodea-Network__opencti-mcp README.md
+        Failed to parse MCP composition JSON: Expecting property name enclosed in
+        double quotes: line 1 column 131 (char 130)
+
+        The JSON contains inline // comments where the trailing comment is immediately
+        followed by closing braces (no newline), e.g.:
+            "OPENCTI_TOKEN":"${OPENCTI_TOKEN}"//Willbeloadedfrom.env}}}}
+        The multiline // removal regex (//.*$) was greedily consuming the closing braces
+        along with the comment, producing broken JSON.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = (
+                '{"mcpServers":{"opencti":{"command":"node",'
+                '"args":["path/to/opencti-server/build/index.js"],'
+                '"env":{"OPENCTI_URL":"${OPENCTI_URL}",//Willbeloadedfrom.env'
+                '"OPENCTI_TOKEN":"${OPENCTI_TOKEN}"//Willbeloadedfrom.env}}}}'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w") as f:
+                f.write("# OpenCTI MCP Server\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(mcp_composition,
+                                 "scan_repo_for_mcp_composition failed to parse JSON "
+                                 "with // comment before closing braces")
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("opencti", mcp_composition["mcpServers"], "'opencti' key missing")
+
+            server = mcp_composition["mcpServers"]["opencti"]
+            self.assertEqual(server["command"], "node",
+                             f"Expected 'node' command but got {server['command']}")
+            self.assertIn("env", server, "'env' key missing")
+            self.assertIn("OPENCTI_URL", server["env"], "'OPENCTI_URL' missing from env")
+            self.assertIn("OPENCTI_TOKEN", server["env"], "'OPENCTI_TOKEN' missing from env")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["command"], "node",
+                             f"Expected 'node' command but got {info['command']}")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()

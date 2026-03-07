@@ -366,6 +366,11 @@ def preprocess_json_string(json_str: str) -> str:
     # Pattern 3: {#comment"key": -> {"key":
     fixed_str = re.sub(r'{#[^"]*"', '{"', fixed_str)
 
+    # Handle inline // comments that appear before closing braces/brackets on the same line
+    # (e.g., "value"//comment}}}} -> "value"}}}}). This must run before the multiline // removal
+    # below, which would otherwise greedily eat the structural characters that follow.
+    fixed_str = re.sub(r'(?<!:)//[^\n]*?([{}\[\]])', r'\1', fixed_str)
+
     # Remove standalone // comments to end of line (for multi-line JSON)
     # Use negative lookbehind for ':' to avoid matching '://' in URLs like http://
     fixed_str = re.sub(r'(?<!:)//.*$', '', fixed_str, flags=re.MULTILINE)
