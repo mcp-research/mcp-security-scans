@@ -393,12 +393,16 @@ def preprocess_json_string(json_str: str) -> str:
     # These appear in README files as shorthand for "and other configurations"
     fixed_str = re.sub(r',\s*\.\.\.[^,}\]"\n]*', '', fixed_str)
 
-    # Fix invalid JSON escape sequences (e.g., Windows paths like C:\Users\)
+    # Fix invalid JSON escape sequences (e.g., Windows paths like C:\Users\repos\)
     # In JSON, valid escape sequences are: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
-    # Replace any backslash not followed by a valid JSON escape character with \\
+    # However, in MCP config files, backslashes before letters like \r, \n, \t, \b, \f
+    # almost always represent Windows path separators (e.g., C:\repos\, C:\node\),
+    # NOT intentional JSON control-character escapes.  We therefore double ALL single
+    # backslashes except those that form \\ (already-escaped), \" (escaped quote),
+    # \/ (escaped slash), or \uXXXX (Unicode escape), which are always intentional.
     # Use negative lookbehind (?<!\\) to avoid processing the second backslash in an
     # already-valid \\ escape sequence (e.g., C:\\mssql should not become C:\\\mssql).
-    fixed_str = re.sub(r'(?<!\\)\\(?!["\\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', fixed_str)
+    fixed_str = re.sub(r'(?<!\\)\\(?!["\\\/]|u[0-9a-fA-F]{4})', r'\\\\', fixed_str)
 
     # After comment removal, try parsing immediately. If the JSON is already valid,
     # return early to avoid later steps (e.g. missing-comma insertion) from

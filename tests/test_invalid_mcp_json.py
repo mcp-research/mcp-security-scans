@@ -792,6 +792,97 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_hash_comment_between_array_elements_with_windows_path(self):
+        """Test scanning a JSON with a hash comment between array elements where the
+        preceding element is a single-backslash Windows path.
+
+        Regression test for: truaxki__mcp-variance-log README.md
+        Failed to parse MCP composition JSON: Invalid \escape: line 1 column 76 (char 75)
+
+        The args array contains a Windows path with unescaped backslashes followed by an
+        inline hash comment before the next array element:
+            "args":["--directory","C:\\Users\\username\\source\\repos\\mcp-variance-log",
+                    #Update this path
+                    "run","mcp-variance-log"]
+        After whitespace stripping this becomes:
+            "args":["--directory","C:\\Users\\username\\source\\repos\\mcp-variance-log",
+                    #Updatethispath"run","mcp-variance-log"]
+        This requires two fixes:
+        1. Remove the ,#Updatethispath" pattern (hash comment between array elements)
+        2. Double the unescaped Windows path backslashes (including the \\r in "\\repos")
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # The README uses single backslashes in the Windows path.
+            # The path contains \repos where \r would otherwise be treated
+            # as a carriage-return JSON escape if not correctly doubled.
+            readme_content = (
+                '# mcp-variance-log\n\n'
+                '```json\n'
+                '{\n'
+                '  "mcpServers": {\n'
+                '    "mcp-variance-log": {\n'
+                '      "command": "uv",\n'
+                '      "args": [\n'
+                '        "--directory",\n'
+                '        "C:\\Users\\username\\source\\repos\\mcp-variance-log", #Update this path\n'
+                '        "run",\n'
+                '        "mcp-variance-log"\n'
+                '      ]\n'
+                '    }\n'
+                '  }\n'
+                '}\n'
+                '```\n'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w") as f:
+                f.write(readme_content)
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with hash comment "
+                "between array elements containing a Windows path"
+            )
+            self.assertIsNone(error_details,
+                               f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("mcp-variance-log", mcp_composition["mcpServers"],
+                          "'mcp-variance-log' key missing")
+
+            server = mcp_composition["mcpServers"]["mcp-variance-log"]
+            self.assertEqual(server["command"], "uv",
+                             f"Expected 'uv' but got {server['command']}")
+            self.assertIn("args", server, "'args' key missing")
+            self.assertIn("--directory", server["args"],
+                          "'--directory' missing from parsed args")
+            self.assertIn("run", server["args"], "'run' missing from parsed args")
+            self.assertIn("mcp-variance-log", server["args"],
+                          "'mcp-variance-log' missing from parsed args")
+            # Verify that the Windows path is preserved with correct backslashes,
+            # including \repos where \r must not be treated as a carriage-return escape.
+            self.assertIn(
+                "C:\\Users\\username\\source\\repos\\mcp-variance-log",
+                server["args"],
+                "Windows path with \\repos missing or incorrectly parsed from args"
+            )
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["command"], "uv",
+                             f"Expected 'uv' command but got {info['command']}")
+            self.assertEqual(info["server_type"], "uv",
+                             f"Expected server_type 'uv' but got {info['server_type']}")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
     def test_brackets_inside_string_values(self):
         """Test scanning a JSON where string values contain curly brackets.
 
