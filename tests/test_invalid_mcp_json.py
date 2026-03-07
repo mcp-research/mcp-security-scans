@@ -5,6 +5,7 @@ import tempfile
 import shutil
 import os
 import sys
+import json
 import logging
 from pathlib import Path
 
@@ -785,6 +786,65 @@ class TestInvalidMcpJson(unittest.TestCase):
             self.assertIn("args", server, "'args' key missing")
             self.assertIn("~/server.py", server["args"],
                           "'~/server.py' missing from parsed args")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
+    def test_brackets_inside_string_values(self):
+        """Test scanning a JSON where string values contain curly brackets.
+
+        Regression test for: jango-blockchained__advanced-homeassistant-mcp README.md
+        Failed analysis: Malformed JSON: Unclosed brackets in file
+
+        The args array contained shell commands with ${workspaceRoot} and \\{\"jsonrpc\"
+        which include { and } characters inside JSON string values.
+        The naive bracket counting algorithm incorrectly counted these as structural
+        brackets, causing it to believe closing brackets were missing.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = json.dumps({
+                "mcpServers": {
+                    "homeassistant-mcp": {
+                        "command": "bash",
+                        "args": ["-c", 'cd${workspaceRoot}&&bunrundist/index.js--stdio2>/dev/null|grep-E\'\\{"jsonrpc":"2\\.0"\''],
+                        "env": {
+                            "NODE_ENV": "development",
+                            "USE_STDIO_TRANSPORT": "true",
+                            "DEBUG_STDIO": "true"
+                        }
+                    }
+                }
+            }, separators=(',', ':'))
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("# Home Assistant MCP\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with brackets inside string values"
+            )
+            self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("homeassistant-mcp", mcp_composition["mcpServers"], "'homeassistant-mcp' key missing")
+
+            server = mcp_composition["mcpServers"]["homeassistant-mcp"]
+            self.assertEqual(server["command"], "bash", f"Expected 'bash' but got {server['command']}")
+            self.assertIn("env", server, "'env' key missing")
+            self.assertEqual(server["env"]["NODE_ENV"], "development")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
 
         finally:
             if temp_dir.exists():
