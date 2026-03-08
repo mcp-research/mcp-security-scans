@@ -1000,6 +1000,60 @@ class TestInvalidMcpJson(unittest.TestCase):
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
 
+    def test_json_with_unquoted_shell_variable_in_args(self):
+        """Test scanning a JSON where a shell variable is used unquoted in an args array.
+
+        Regression test for: MatthewLaw1__Near-Intents-MCP-Agentkit crew.sh
+        Failed to parse MCP composition JSON: Expecting value: line 1 column 55 (char 54)
+
+        The JSON contains `"args":[$path]` where `$path` is an unquoted shell
+        variable reference.  This must be quoted before the JSON is parsed.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = (
+                '{"mcpServers":{"crew-ai":{"command":"python3","args":[$path],'
+                '"env":{"OPENAI_API_KEY":"${OPENAI_API_KEY}"},"disabled":false,"alwaysAllow":[]}}}'
+            )
+
+            test_file = temp_dir / "crew.sh"
+            with open(test_file, "w") as f:
+                f.write("#!/bin/bash\n")
+                f.write("# MCP configuration\n")
+                f.write(issue_json)
+                f.write("\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with unquoted shell variable in args"
+            )
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("crew-ai", mcp_composition["mcpServers"], "'crew-ai' key missing")
+
+            server = mcp_composition["mcpServers"]["crew-ai"]
+            self.assertEqual(server["command"], "python3",
+                             f"Unexpected command: {server.get('command')!r}")
+            self.assertIn("args", server, "'args' key missing")
+            self.assertEqual(server["args"], ["$path"],
+                             f"Unexpected args: {server.get('args')!r}")
+            self.assertIn("env", server, "'env' key missing")
+            self.assertEqual(server["env"]["OPENAI_API_KEY"], "${OPENAI_API_KEY}",
+                             "OPENAI_API_KEY value should be preserved as-is")
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["command"], "python3")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     unittest.main()
