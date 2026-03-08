@@ -942,5 +942,64 @@ class TestInvalidMcpJson(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
 
+    def test_json_with_spread_placeholder_at_object_start(self):
+        """Test scanning a JSON with a JavaScript-style spread placeholder at the start of an object.
+
+        Regression test for: ahnlabio__bicscan-mcp README.md
+        Failed to parse MCP composition JSON: Expecting property name enclosed in
+        double quotes: line 1 column 16 (char 15)
+
+        The JSON contains `{...someothermcpservers...,"bicscan":{...}}` where
+        `...someothermcpservers...` is a JavaScript-style spread placeholder used
+        to indicate "and other MCP server configurations". This must be stripped
+        before the JSON is parsed.
+        """
+        temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            issue_json = (
+                '{"mcpServers":{...someothermcpservers...,"bicscan":{"command":"uv",'
+                '"args":["--directory","YOUR_BICSCAN_REPO_DIR_HERE","run","bicscan-mcp"],'
+                '"env":{"BICSCAN_API_KEY":"YOUR_BICSCAN_API_KEY_HERE"}}}}'
+            )
+
+            test_file = temp_dir / "README.md"
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("# BicScan MCP\n\n")
+                f.write("```json\n")
+                f.write(issue_json)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(temp_dir)
+
+            self.assertIsNotNone(
+                mcp_composition,
+                "scan_repo_for_mcp_composition failed to parse JSON with spread placeholder at object start"
+            )
+            self.assertIsNone(error_details,
+                              f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing")
+            self.assertIn("bicscan", mcp_composition["mcpServers"], "'bicscan' key missing")
+
+            bicscan_server = mcp_composition["mcpServers"]["bicscan"]
+            self.assertEqual(bicscan_server["command"], "uv",
+                             f"Unexpected command: {bicscan_server.get('command')!r}")
+            self.assertEqual(
+                bicscan_server["args"],
+                ["--directory", "YOUR_BICSCAN_REPO_DIR_HERE", "run", "bicscan-mcp"],
+                f"Unexpected args: {bicscan_server.get('args')!r}"
+            )
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["server"], "bicscan")
+            self.assertEqual(info["command"], "uv")
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
+
+
 if __name__ == "__main__":
     unittest.main()
