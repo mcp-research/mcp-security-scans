@@ -460,6 +460,21 @@ def preprocess_json_string(json_str: str) -> str:
         fixed_str
     )
 
+    # Fix unquoted shell variable references used as array elements or object values
+    # (e.g., [$path] -> ["$path"] or [$path,other] -> ["$path",other],
+    #  or "key":$path -> "key":"$path", or "key":${VAR} -> "key":"${VAR}")
+    _shell_var_pattern = r'\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*'
+    fixed_str = re.sub(
+        r'(?<=[\[,])(' + _shell_var_pattern + r')(?=[,\]])',
+        r'"\1"',
+        fixed_str
+    )
+    fixed_str = re.sub(
+        r'(?<=:)(' + _shell_var_pattern + r')(?=[,}])',
+        r'"\1"',
+        fixed_str
+    )
+
     # Fix entries with no values at all (e.g., "OAUTH_AUTHORIZE_PATH")
 
     # This should only match quoted strings that are NOT part of a key: value pair
