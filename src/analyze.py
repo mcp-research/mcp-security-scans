@@ -341,6 +341,7 @@ def preprocess_json_string(json_str: str) -> str:
     - Empty entries with missing values (e.g., "key")
     - Parenthetical comments used as placeholders (e.g., (... and so on))
     - Hash comments at the start of an array (e.g., [#comment"value")
+    - Spread-like placeholders at the start of an object (e.g., {...someothermcpservers...,"key":value})
 
     Args:
         json_str: The JSON string to preprocess
@@ -392,6 +393,11 @@ def preprocess_json_string(json_str: str) -> str:
     # Remove ellipsis placeholder comments (e.g., ,...其它MCPServer配置 or ,...other configs)
     # These appear in README files as shorthand for "and other configurations"
     fixed_str = re.sub(r',\s*\.\.\.[^,}\]"\n]*', '', fixed_str)
+
+    # Remove spread-like placeholder at the start of an object followed by a comma
+    # (e.g., {...someothermcpservers...,"key":value} -> {"key":value})
+    # These appear in README files as shorthand for "and other MCP server configurations"
+    fixed_str = re.sub(r'({\s*)\.\.\.[^,}\]"\n]*,\s*', r'\1', fixed_str)
 
     # Fix invalid JSON escape sequences (e.g., Windows paths like C:\Users\repos\)
     # In JSON, valid escape sequences are: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
