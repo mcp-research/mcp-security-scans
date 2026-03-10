@@ -423,6 +423,16 @@ def preprocess_json_string(json_str: str) -> str:
     # Fix trailing commas before closing braces/brackets (e.g., "key": "value",})
     fixed_str = re.sub(r',(\s*[}\]])', r'\1', fixed_str)
 
+    # After trailing comma removal, try parsing again. If valid, return early to avoid
+    # later steps (e.g. unquoted-identifier insertion) from corrupting string values
+    # that legitimately contain commas (e.g., "ALLOW_COMMANDS":"ls,cat,pwd,grep,wc").
+    try:
+        json.loads(fixed_str)
+        logging.debug("JSON valid after trailing comma removal; returning without further preprocessing")
+        return fixed_str
+    except json.JSONDecodeError:
+        pass
+
     # Fix missing comma after a closing array bracket followed by a property key
     # e.g., ]"env": -> ],"env":
     fixed_str = re.sub(r'(\])"', r'\1,"', fixed_str)

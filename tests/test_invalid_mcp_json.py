@@ -158,6 +158,48 @@ class TestInvalidMcpJson(unittest.TestCase):
             if trailing_comma_temp_dir.exists():
                 shutil.rmtree(trailing_comma_temp_dir)
 
+    def test_trailing_comma_after_last_server_with_csv_env_value(self):
+        """Test scanning a JSON with a trailing comma after the last server entry
+        where an env var value contains commas (e.g., tumf__mcp-shell-server)."""
+        trailing_comma_temp_dir = Path(tempfile.mkdtemp())
+
+        try:
+            # This is the exact JSON from the reported issue (tumf__mcp-shell-server).
+            # The trailing comma is after the only server entry (},}}) and the env value
+            # "ls,cat,pwd,grep,wc,touch,find" contains commas that must not be modified.
+            json_with_trailing_comma = '{"mcpServers":{"shell":{"command":"uvx","args":["mcp-shell-server"],"env":{"ALLOW_COMMANDS":"ls,cat,pwd,grep,wc,touch,find"}},}}'
+
+            trailing_comma_file = trailing_comma_temp_dir / "README.md"
+            with open(trailing_comma_file, "w") as f:
+                f.write("# Shell MCP Server\n\n")
+                f.write("```json\n")
+                f.write(json_with_trailing_comma)
+                f.write("\n```\n")
+
+            mcp_composition, error_details = scan_repo_for_mcp_composition(trailing_comma_temp_dir)
+
+            self.assertIsNotNone(mcp_composition, "scan_repo_for_mcp_composition failed to parse JSON with trailing comma after last server entry")
+            self.assertIsNone(error_details, f"scan_repo_for_mcp_composition returned error: {error_details}")
+            self.assertIn("mcpServers", mcp_composition, "'mcpServers' key missing in parsed composition")
+            self.assertIn("shell", mcp_composition["mcpServers"], "'shell' key missing in parsed composition")
+
+            env_obj = mcp_composition["mcpServers"]["shell"]["env"]
+            self.assertIn("ALLOW_COMMANDS", env_obj, "'ALLOW_COMMANDS' key missing in env object")
+            self.assertEqual(
+                env_obj["ALLOW_COMMANDS"],
+                "ls,cat,pwd,grep,wc,touch,find",
+                f"ALLOW_COMMANDS value was corrupted: {env_obj['ALLOW_COMMANDS']}"
+            )
+
+            info, analysis_error = get_composition_info(mcp_composition)
+            self.assertIsNone(analysis_error, f"get_composition_info returned error: {analysis_error}")
+            self.assertIsNotNone(info, "get_composition_info returned None")
+            self.assertEqual(info["command"], "uvx", f"Expected 'uvx' command but got {info['command']}")
+
+        finally:
+            if trailing_comma_temp_dir.exists():
+                shutil.rmtree(trailing_comma_temp_dir)
+
     def test_json_with_comments(self):
         """Test scanning a JSON with comments using // and # syntax."""
         # Create a separate temporary directory for this test
